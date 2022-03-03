@@ -396,7 +396,8 @@ def matching_round(people,network,loud=True):
 
 def find_mentor(network,mentee:Person,mentors,loud):
     mentors_avoided = ([])
-    mentors_intersect = ([])
+    mentors_preferred = ([])
+    mentors_prefer_mentee = ([])
     for mentor in mentors:
         ## first remove mentors to avoid
         ## also remove mentors that want to avoid this mentee
@@ -404,15 +405,21 @@ def find_mentor(network,mentee:Person,mentors,loud):
         ## also remove mentors with roles from which the mentee does not want a mentor
         if mentee.check_compatability(mentor, loud=False):
             mentors_avoided.append(mentor)
-        ## check for preferred mentors
+            ## check for preferred mentors by thi mentee
             if mentor.name in mentee.mentors_prefr:
-                mentors_intersect.append(mentor)
+                mentors_preferred.append(mentor)
+            ## check for mentors that prefer this mentee
+            if mentee.name in mentor.mentees_prefr:
+                mentors_prefer_mentee.append(mentor)
     ## the while loop is for double checking. We may want to keep this to check other optimizations, but as it is now it is (should be) redundant
     keep_going = True
     while keep_going:
-        if len(mentors_intersect):
+        if len(mentors_preferred):
             ## there is a preferred mentor still available
-            prosp_mentor = random.choice(mentors_intersect)
+            prosp_mentor = random.choice(mentors_preferred)
+        elif len(mentors_prefer_mentee):
+            ## there is a mentor that prefers this mentee available
+            prosp_mentor = random.choice(mentors_prefer_mentee)
         elif len(mentors_avoided) == 0:
             print ('Mentee ', mentee, ' cannot be matched to a mentor any more that satisfies all mentee+mentors requirements!')
             ##TODO: need to decide how to handle these cases?
