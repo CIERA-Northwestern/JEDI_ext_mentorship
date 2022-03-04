@@ -113,19 +113,19 @@ def run_frac_any_avoid(people,network):
                 break
     return num/len(people)
 
-def run_mean_clique_size(people, network):
-    """ generate a histogram of newtorkx cliques of size k
-    following : https://stackoverflow.com/questions/58775867/what-is-the-best-way-to-count-the-cliques-of-size-k-in-an-undirected-graph-using
-    I need a single value for this, so I will take the mean clique size
-    """
-    def find_cliques_size_k(G, k):
-        i = 0
-        for clique in nx.find_cliques(G):
-            if len(clique) == k:
-                i += 1
-            elif len(clique) > k:
-                i += len(list(itertools.combinations(clique, k)))
-        return i
+def find_cliques_size_k(G, k):
+    # following : https://stackoverflow.com/questions/58775867/what-is-the-best-way-to-count-the-cliques-of-size-k-in-an-undirected-graph-using
+
+    i = 0
+    for clique in nx.find_cliques(G):
+        if len(clique) == k:
+            i += 1
+        elif len(clique) > k:
+            i += len(list(itertools.combinations(clique, k)))
+    return i
+
+def run_mean_clique_size(people, network, max_clique_size = 10):
+    # get the mean clique size for the network.  Presumably this should be maximized
 
     mean_clique_size = 0
     denom = 0
@@ -137,10 +137,18 @@ def run_mean_clique_size(people, network):
 
     if (denom > 0):
         mean_clique_size /= denom
-        
+
     return mean_clique_size
 
+def run_n_cliques_gt3(people, network, max_clique_size = 10):
+    # get tne number of cliques with size > 3 (could change 3 to any number)
 
+    n_cliques = 0
+    for i in range(max_clique_size):
+        if (i > 3):
+            n_cliques += find_cliques_size_k(network.to_undirected(), i)
+
+    return n_cliques
 
 def run_all_metrics(people,network):
 
@@ -152,7 +160,8 @@ def run_all_metrics(people,network):
         run_frac_mentors_overassigned,
         run_frac_mentees_atleast_one_preference,
         run_frac_any_avoid,
-        run_mean_clique_size]
+        run_mean_clique_size,
+        run_n_cliques_gt3]
 
     metric_values = [metric(people,network) for metric in metrics]
 
