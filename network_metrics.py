@@ -124,6 +124,16 @@ def find_cliques_size_k(G, k):
             i += len(list(itertools.combinations(clique, k)))
     return i
 
+def enumerate_all_cliques_size_k(G, k):
+    # following : https://stackoverflow.com/questions/58775867/what-is-the-best-way-to-count-the-cliques-of-size-k-in-an-undirected-graph-using
+    i = 0
+    for clique in nx.enumerate_all_cliques(G):
+        if len(clique) == k:
+            i += 1
+        elif len(clique) > k:
+            return i
+    return i
+
 def run_mean_clique_size(people, network, max_clique_size = 10):
     # get the mean clique size for the network.  Presumably this should be maximized
 
@@ -132,8 +142,9 @@ def run_mean_clique_size(people, network, max_clique_size = 10):
     max_clique_size = 10
     G = network.to_undirected()
     for i in range(max_clique_size):
-        n = find_cliques_size_k(G, i)
-        #print("cliques", i, n)
+        #n = find_cliques_size_k(G, i)
+        n = enumerate_all_cliques_size_k(G, i)
+        print("cliques", i, n)
         mean_clique_size += i*n
         denom += n
 
@@ -149,7 +160,8 @@ def run_n_cliques_gt3(people, network, max_clique_size = 10):
     G = network.to_undirected()
     for i in range(max_clique_size):
         if (i > 3):
-            n_cliques += find_cliques_size_k(G, i)
+            #n_cliques += find_cliques_size_k(G, i)
+            n_cliques += enumerate_all_cliques_size_k(G, i)
 
     return n_cliques
 
