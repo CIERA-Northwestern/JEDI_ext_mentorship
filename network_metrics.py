@@ -128,7 +128,7 @@ def find_cliques_size_k(G, k):
 def enumerate_all_cliques_size_k(G, k):
     # following : https://stackoverflow.com/questions/58775867/what-is-the-best-way-to-count-the-cliques-of-size-k-in-an-undirected-graph-using
     # this is more straightforward than the function above and returns expected results (though it is apparently slower).
-    
+
     i = 0
     for clique in nx.enumerate_all_cliques(G):
         if len(clique) == k:
@@ -157,12 +157,24 @@ def run_mean_clique_size(people, network, max_clique_size = 10):
     return mean_clique_size
 
 def run_n_cliques_gt3(people, network, max_clique_size = 10):
-    # get tne number of cliques with size > 3 (could change 3 to any number)
+    # get tne number of cliques with size > 3 (not sure the best number)
 
     n_cliques = 0
     G = network.to_undirected()
     for i in range(max_clique_size):
         if (i > 3):
+            #n_cliques += find_cliques_size_k(G, i)
+            n_cliques += enumerate_all_cliques_size_k(G, i)
+
+    return n_cliques
+
+def run_n_cliques_gt2(people, network, max_clique_size = 10):
+    # get tne number of cliques with size > 2
+
+    n_cliques = 0
+    G = network.to_undirected()
+    for i in range(max_clique_size):
+        if (i > 2):
             #n_cliques += find_cliques_size_k(G, i)
             n_cliques += enumerate_all_cliques_size_k(G, i)
 
@@ -179,7 +191,7 @@ def run_all_metrics(people,network):
         run_frac_mentees_atleast_one_preference,
         run_frac_any_avoid,
         run_mean_clique_size,
-        run_n_cliques_gt3]
+        run_n_cliques_gt2]
 
     metric_values = [metric(people,network) for metric in metrics]
 
