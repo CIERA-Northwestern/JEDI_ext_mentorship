@@ -284,18 +284,29 @@ class Person(object):
         print()
         
 
-    def check_mentor_availability(self, mentee):
+    def check_mentor_available(self, mentee):
+        # check if a given mentor can accept a new mentee in this role
         # this is only relevant for mentors
         # check that the mentor can accept another mentee 
         #print('check', self.name, self.n_mentees_max,  self.n_role_mentees[mentee.rank], self.n_mentees_max - len(self.mentee_matches), self.n_role_mentees[mentee.rank] - self.has_n_role_mentees[mentee.rank])
 
         # number is less than global max
-        check_available = (self.n_mentees_max - len(self.mentee_matches) > 0)
+        check_available = (len(self.mentee_matches) < self.n_mentees_max)
         
         # number in specific role is less than max in that role
-        check_available_role = (self.n_role_mentees[mentee.rank] - self.has_n_role_mentees[mentee.rank] > 0)
+        check_available_role = (self.has_n_role_mentees[mentee.rank] < self.n_role_mentees[mentee.rank])
 
         return (check_available and check_available_role)
+
+    def check_mentor_needed(self, mentor):
+        # check if a given mentee needs a mentor in this role
+        # this is only relevant for mentees
+        # check that the mentee needs a mentor from this role
+        
+        # number in specific role is less than needed in that role
+        check_needed_role = (self.has_n_role_mentors[mentor.rank] < self.n_role_mentors[mentor.rank])
+
+        return check_needed_role
 
     def check_compatability(self,other, loud = False):
         check_avoid = (not (self.name in other.mentees_avoid or self.name in other.mentors_avoid or
@@ -419,7 +430,7 @@ def find_mentor(network,mentee:Person,mentors,loud):
     mentors_prefer_mentee = ([])
     for mentor in mentors:
         ## first, check that the mentor has available spots for this mentee
-        if (mentor.check_mentor_availability(mentee)):
+        if (mentor.check_mentor_available(mentee) and mentee.check_mentor_needed(mentor)):
             ## then remove mentors to avoid
             ## also remove mentors that want to avoid this mentee
             ## also remove mentors who don't want to mentor someone in mentees role, or are more junior
