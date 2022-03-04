@@ -1,4 +1,5 @@
-
+import itertools
+import networkx as nx
 
 def run_frac_mentees_with_a_mentor(people,network):
     """ Count the fraction of people who requested mentors
@@ -94,7 +95,7 @@ def run_frac_mentees_atleast_one_preference(people,network):
 
 def run_frac_any_avoid(people,network):
     """ Count the fraction of mentors and mentees who
-        got mathed with people they wanted to avoid
+        got matched with people they wanted to avoid
         THIS SHOULD ALWAYS BE 0"""
     num = 0
     for person in people.values():
@@ -112,6 +113,35 @@ def run_frac_any_avoid(people,network):
                 break
     return num/len(people)
 
+def run_mean_clique_size(people, network):
+    """ generate a histogram of newtorkx cliques of size k
+    following : https://stackoverflow.com/questions/58775867/what-is-the-best-way-to-count-the-cliques-of-size-k-in-an-undirected-graph-using
+    I need a single value for this, so I will take the mean clique size
+    """
+    def find_cliques_size_k(G, k):
+        i = 0
+        for clique in nx.find_cliques(G):
+            if len(clique) == k:
+                i += 1
+            elif len(clique) > k:
+                i += len(list(itertools.combinations(clique, k)))
+        return i
+
+    mean_clique_size = 0
+    denom = 0
+    max_clique_size = 10
+    for i in range(max_clique_size):
+        n = find_cliques_size_k(network.to_undirected(), i)
+        mean_clique_size += i*n
+        denom += n
+
+    if (denom > 0):
+        mean_clique_size /= denom
+        
+    return mean_clique_size
+
+
+
 def run_all_metrics(people,network):
 
     metrics = [
@@ -121,7 +151,8 @@ def run_all_metrics(people,network):
         run_frac_mentors_with_extra_slots,
         run_frac_mentors_overassigned,
         run_frac_mentees_atleast_one_preference,
-        run_frac_any_avoid]
+        run_frac_any_avoid,
+        run_mean_clique_size]
 
     metric_values = [metric(people,network) for metric in metrics]
 
