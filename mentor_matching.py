@@ -280,9 +280,17 @@ class Person(object):
         print('------')
         print()
         
-    def check_compatability(self,other):
-        return (not (self in other.mentees_avoid or self in other.mentors_avoid or
-        other in self.mentees_avoid or other in self.mentors_avoid) and self is not other)
+    def check_compatability(self,other, loud = False):
+        check_avoid = (not (self.name in other.mentees_avoid or self.name in other.mentors_avoid or
+        other.name in self.mentees_avoid or other.name in self.mentors_avoid) and self is not other)
+        if loud and not check_avoid: print('check neither on avoid lists', check_avoid, '\n mentee name', self.name, '\n mentor avoid list:', other.mentees_avoid,'\n mentor name', other.name, '\n mentee avoid list', self.mentors_avoid)
+        #now checking that there is not relation yet, assuming other is always the mentor)
+        check_relation = (other not in self.mentor_matches and self not in other.mentee_matches)
+        if loud and not check_relation: print('check that this exact relation does not exist yet', check_relation, '\n mentee name', self.name, '\n mentor\'s matches:', other.mentee_matches,'\n mentor name', other.name, '\n mentee\'s matches:', self.mentor_matches)
+        # now checking that mentee wants a mentor from that role, and the mentor wants a mentee from that role
+        check_roles = (self.n_role_mentors[other.rank] > 0 and other.n_role_mentees[self.rank] > 0)
+        if loud and not check_roles: print('check that both want mentee/mentors from the right roles', check_roles, '\n mentor preference:', other.n_role_mentees[self.rank], '\n mentee preference', self.n_role_mentors[other.rank])
+        return (check_avoid and check_relation and check_roles)
                 
     
 ## let's read in the data to some intelligible format and get rid of all those nans
@@ -350,7 +358,7 @@ def reduce_full_tables(names_df,mentees_df,mentors_df):
         
     return people
 
-def generate_network(names_df,mentees_df,mentors_df,loud=False):
+def generate_network(names_df,mentees_df,mentors_df,loud=True):
     people = reduce_full_tables(names_df,mentees_df,mentors_df)
     network = nx.MultiDiGraph()
     mentors,mentees = matching_round(people,network,loud)
@@ -381,21 +389,46 @@ def matching_round(people,network,loud=True):
     mentors = sorted(mentors,key=attrgetter("rank"),reverse=True)
 
     ## attempt to match each remaining mentee with a mentor
-    for mentee in mentees: find_mentor(network,mentee,mentors)
+    for mentee in mentees: find_mentor(network,mentee,mentors,loud)
 
     if loud: print('Mentors remaining:',len(mentors),'Mentees remaining:',len(mentees))
     return mentors,mentees
 
-def find_mentor(network,mentee:Person,mentors):
+def find_mentor(network,mentee:Person,mentors,loud):
+    mentors_avoided = ([])
+    mentors_preferred = ([])
+    mentors_prefer_mentee = ([])
+    for mentor in mentors:
+        ## first remove mentors to avoid
+        ## also remove mentors that want to avoid this mentee
+        ## also remove mentors who don't want to mentor someone in mentees role, or are more junior
+        ## also remove mentors with roles from which the mentee does not want a mentor
+        if mentee.check_compatability(mentor, loud=False):
+            mentors_avoided.append(mentor)
+            ## check for preferred mentors by thi mentee
+            if mentor.name in mentee.mentors_prefr:
+                mentors_preferred.append(mentor)
+            ## check for mentors that prefer this mentee
+            if mentee.name in mentor.mentees_prefr:
+                mentors_prefer_mentee.append(mentor)
+    ## the while loop is for double checking. We may want to keep this to check other optimizations, but as it is now it is (should be) redundant
     keep_going = True
     while keep_going:
-        prosp_mentor = random.choice(mentors)
-        if mentee.check_compatability(prosp_mentor):
-            #if prosp_mentor.role == mentee.role:
-                ## handle peer mentor case
-                #if prosp_mentor.check_mentor_compatability(mentee):
-                    #add_relationship(network,mentee,prosp_mentor)
-                #else: continue
+        if len(mentors_preferred):
+            ## there is a preferred mentor still available
+            prosp_mentor = random.choice(mentors_preferred)
+        elif len(mentors_prefer_mentee):
+            ## there is a mentor that prefers this mentee available
+            prosp_mentor = random.choice(mentors_prefer_mentee)
+        elif len(mentors_avoided) == 0:
+            print ('Mentee ', mentee, ' cannot be matched to a mentor any more that satisfies all mentee+mentors requirements!')
+            ##TODO: need to decide how to handle these cases?
+            return
+        else:
+            ## pick one from the general list with removed avoid mentors
+            prosp_mentor = random.choice(mentors_avoided)
+        ## we're now doing a double check (this one is loud), which shouldn't be needed; together with the while loop this should be redundant because the same checks are done earlier.
+        if mentee.check_compatability(prosp_mentor, loud):
             add_relationship(network,prosp_mentor,mentee)
             keep_going = False
             
