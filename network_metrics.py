@@ -115,7 +115,8 @@ def run_frac_any_avoid(people,network):
 
 def find_cliques_size_k(G, k):
     # following : https://stackoverflow.com/questions/58775867/what-is-the-best-way-to-count-the-cliques-of-size-k-in-an-undirected-graph-using
-
+    # this is supposed to be faster, but finds only the maximum cliques.  I don't understand this, and it is also returning 0s, 
+    # which I don't understand.  We won't use this.
     i = 0
     for clique in nx.find_cliques(G):
         if len(clique) == k:
@@ -126,6 +127,8 @@ def find_cliques_size_k(G, k):
 
 def enumerate_all_cliques_size_k(G, k):
     # following : https://stackoverflow.com/questions/58775867/what-is-the-best-way-to-count-the-cliques-of-size-k-in-an-undirected-graph-using
+    # this is more straightforward than the function above and returns expected results (though it is apparently slower).
+    
     i = 0
     for clique in nx.enumerate_all_cliques(G):
         if len(clique) == k:
@@ -144,7 +147,7 @@ def run_mean_clique_size(people, network, max_clique_size = 10):
     for i in range(max_clique_size):
         #n = find_cliques_size_k(G, i)
         n = enumerate_all_cliques_size_k(G, i)
-        print("cliques", i, n)
+        #print("cliques", i, n)
         mean_clique_size += i*n
         denom += n
 
