@@ -130,8 +130,10 @@ def run_mean_clique_size(people, network, max_clique_size = 10):
     mean_clique_size = 0
     denom = 0
     max_clique_size = 10
+    G = network.to_undirected()
     for i in range(max_clique_size):
-        n = find_cliques_size_k(network.to_undirected(), i)
+        n = find_cliques_size_k(G, i)
+        #print("cliques", i, n)
         mean_clique_size += i*n
         denom += n
 
@@ -144,9 +146,10 @@ def run_n_cliques_gt3(people, network, max_clique_size = 10):
     # get tne number of cliques with size > 3 (could change 3 to any number)
 
     n_cliques = 0
+    G = network.to_undirected()
     for i in range(max_clique_size):
         if (i > 3):
-            n_cliques += find_cliques_size_k(network.to_undirected(), i)
+            n_cliques += find_cliques_size_k(G, i)
 
     return n_cliques
 
