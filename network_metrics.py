@@ -114,6 +114,7 @@ def run_frac_any_avoid(people,network):
     return num/len(people)
 
 def find_cliques_size_k(G, k):
+    # unused
     # following : https://stackoverflow.com/questions/58775867/what-is-the-best-way-to-count-the-cliques-of-size-k-in-an-undirected-graph-using
     # this is supposed to be faster, but finds only the maximum cliques.  I don't understand this, and it is also returning 0s, 
     # which I don't understand.  We won't use this.
@@ -126,6 +127,7 @@ def find_cliques_size_k(G, k):
     return i
 
 def enumerate_all_cliques_size_k(G, k):
+    # unused
     # following : https://stackoverflow.com/questions/58775867/what-is-the-best-way-to-count-the-cliques-of-size-k-in-an-undirected-graph-using
     # this is more straightforward than the function above and returns expected results (though it is apparently slower).
 
@@ -142,43 +144,35 @@ def run_mean_clique_size(people, network, max_clique_size = 10):
 
     mean_clique_size = 0
     denom = 0
-    max_clique_size = 10
-    G = network.to_undirected()
-    for i in range(max_clique_size):
-        #n = find_cliques_size_k(G, i)
-        n = enumerate_all_cliques_size_k(G, i)
-        #print("cliques", i, n)
-        mean_clique_size += i*n
-        denom += n
+    for clique in nx.enumerate_all_cliques(network.to_undirected()):
+        mean_clique_size += len(clique)
+        denom += 1
 
     if (denom > 0):
         mean_clique_size /= denom
 
     return mean_clique_size
 
+def get_n_cliques_gtN(network, n=2):
+    # get tne number of cliques with size > N 
+
+    n_cliques = 0
+    for clique in nx.enumerate_all_cliques(network.to_undirected()):
+        if (len(clique) > n):
+            n_cliques += 1
+
+    return n_cliques
+
 def run_n_cliques_gt3(people, network, max_clique_size = 10):
     # get tne number of cliques with size > 3 (not sure the best number)
 
-    n_cliques = 0
-    G = network.to_undirected()
-    for i in range(max_clique_size):
-        if (i > 3):
-            #n_cliques += find_cliques_size_k(G, i)
-            n_cliques += enumerate_all_cliques_size_k(G, i)
-
-    return n_cliques
+    return get_n_cliques_gtN(network, 3)
 
 def run_n_cliques_gt2(people, network, max_clique_size = 10):
     # get tne number of cliques with size > 2
 
-    n_cliques = 0
-    G = network.to_undirected()
-    for i in range(max_clique_size):
-        if (i > 2):
-            #n_cliques += find_cliques_size_k(G, i)
-            n_cliques += enumerate_all_cliques_size_k(G, i)
+    return get_n_cliques_gtN(network, 3)
 
-    return n_cliques
 
 def run_all_metrics(people,network):
 
