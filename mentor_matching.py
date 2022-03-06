@@ -86,6 +86,9 @@ class Person(object):
         self.n_role_mentees = np.zeros(4)
         self.n_role_mentors = np.zeros(4)
         
+        self.has_n_role_mentees = np.zeros(4)
+        self.has_n_role_mentors = np.zeros(4)
+
         self.n_mentees_max = 0
         self.n_mentees_total = 0
         self.n_mentors_total = 0
@@ -280,6 +283,31 @@ class Person(object):
         print('------')
         print()
         
+
+    def check_mentor_available(self, mentee):
+        # check if a given mentor can accept a new mentee in this role
+        # this is only relevant for mentors
+        # check that the mentor can accept another mentee 
+        #print('check', self.name, self.n_mentees_max,  self.n_role_mentees[mentee.rank], self.n_mentees_max - len(self.mentee_matches), self.n_role_mentees[mentee.rank] - self.has_n_role_mentees[mentee.rank])
+
+        # number is less than global max
+        check_available = (len(self.mentee_matches) < self.n_mentees_max)
+        
+        # number in specific role is less than max in that role
+        check_available_role = (self.has_n_role_mentees[mentee.rank] < self.n_role_mentees[mentee.rank])
+
+        return (check_available and check_available_role)
+
+    def check_mentor_needed(self, mentor):
+        # check if a given mentee needs a mentor in this role
+        # this is only relevant for mentees
+        # check that the mentee needs a mentor from this role
+        
+        # number in specific role is less than needed in that role
+        check_needed_role = (self.has_n_role_mentors[mentor.rank] < self.n_role_mentors[mentor.rank])
+
+        return check_needed_role
+
     def check_compatability(self,other, loud = False):
         check_avoid = (not (self.name in other.mentees_avoid or self.name in other.mentors_avoid or
         other.name in self.mentees_avoid or other.name in self.mentors_avoid) and self is not other)
@@ -290,6 +318,8 @@ class Person(object):
         # now checking that mentee wants a mentor from that role, and the mentor wants a mentee from that role
         check_roles = (self.n_role_mentors[other.rank] > 0 and other.n_role_mentees[self.rank] > 0)
         if loud and not check_roles: print('check that both want mentee/mentors from the right roles', check_roles, '\n mentor preference:', other.n_role_mentees[self.rank], '\n mentee preference', self.n_role_mentors[other.rank])
+
+
         return (check_avoid and check_relation and check_roles)
                 
     
@@ -399,18 +429,20 @@ def find_mentor(network,mentee:Person,mentors,loud):
     mentors_preferred = ([])
     mentors_prefer_mentee = ([])
     for mentor in mentors:
-        ## first remove mentors to avoid
-        ## also remove mentors that want to avoid this mentee
-        ## also remove mentors who don't want to mentor someone in mentees role, or are more junior
-        ## also remove mentors with roles from which the mentee does not want a mentor
-        if mentee.check_compatability(mentor, loud=False):
-            mentors_avoided.append(mentor)
-            ## check for preferred mentors by thi mentee
-            if mentor.name in mentee.mentors_prefr:
-                mentors_preferred.append(mentor)
-            ## check for mentors that prefer this mentee
-            if mentee.name in mentor.mentees_prefr:
-                mentors_prefer_mentee.append(mentor)
+        ## first, check that the mentor has available spots for this mentee
+        if (mentor.check_mentor_available(mentee) and mentee.check_mentor_needed(mentor)):
+            ## then remove mentors to avoid
+            ## also remove mentors that want to avoid this mentee
+            ## also remove mentors who don't want to mentor someone in mentees role, or are more junior
+            ## also remove mentors with roles from which the mentee does not want a mentor
+            if mentee.check_compatability(mentor, loud=False):
+                mentors_avoided.append(mentor)
+                ## check for preferred mentors by this mentee
+                if mentor.name in mentee.mentors_prefr:
+                    mentors_preferred.append(mentor)
+                ## check for mentors that prefer this mentee
+                if mentee.name in mentor.mentees_prefr:
+                    mentors_prefer_mentee.append(mentor)
     ## the while loop is for double checking. We may want to keep this to check other optimizations, but as it is now it is (should be) redundant
     keep_going = True
     while keep_going:
@@ -434,5 +466,7 @@ def find_mentor(network,mentee:Person,mentors,loud):
             
 def add_relationship(network,mentor,mentee):
     mentee.mentor_matches.append(mentor)
+    mentee.has_n_role_mentors[mentor.rank] += 1
     mentor.mentee_matches.append(mentee)
+    mentor.has_n_role_mentees[mentee.rank] += 1
     network.add_edge(mentor,mentee)

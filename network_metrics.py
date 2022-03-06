@@ -1,4 +1,5 @@
-
+import itertools
+import networkx as nx
 
 def run_frac_mentees_with_a_mentor(people,network):
     """ Count the fraction of people who requested mentors
@@ -94,7 +95,7 @@ def run_frac_mentees_atleast_one_preference(people,network):
 
 def run_frac_any_avoid(people,network):
     """ Count the fraction of mentors and mentees who
-        got mathed with people they wanted to avoid
+        got matched with people they wanted to avoid
         THIS SHOULD ALWAYS BE 0"""
     num = 0
     for person in people.values():
@@ -112,6 +113,41 @@ def run_frac_any_avoid(people,network):
                 break
     return num/len(people)
 
+def run_mean_clique_size(people, network):
+    # get the mean clique size for the network.  Presumably this should be maximized
+
+    mean_clique_size = 0
+    denom = 0
+    for clique in nx.enumerate_all_cliques(network.to_undirected()):
+        mean_clique_size += len(clique)
+        denom += 1
+
+    if (denom > 0):
+        mean_clique_size /= denom
+
+    return mean_clique_size
+
+def get_n_cliques_gtN(network, n = 2):
+    # get tne number of cliques with size > N 
+
+    n_cliques = 0
+    for clique in nx.enumerate_all_cliques(network.to_undirected()):
+        if (len(clique) > n):
+            n_cliques += 1
+
+    return n_cliques
+
+def run_n_cliques_gt3(people, network):
+    # get tne number of cliques with size > 3 (not sure the best number)
+
+    return get_n_cliques_gtN(network, 3)
+
+def run_n_cliques_gt2(people, network):
+    # get tne number of cliques with size > 2
+
+    return get_n_cliques_gtN(network, 2)
+
+
 def run_all_metrics(people,network):
 
     metrics = [
@@ -121,7 +157,9 @@ def run_all_metrics(people,network):
         run_frac_mentors_with_extra_slots,
         run_frac_mentors_overassigned,
         run_frac_mentees_atleast_one_preference,
-        run_frac_any_avoid]
+        run_frac_any_avoid,
+        run_mean_clique_size,
+        run_n_cliques_gt2]
 
     metric_values = [metric(people,network) for metric in metrics]
 
