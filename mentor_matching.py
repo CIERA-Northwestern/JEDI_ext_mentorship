@@ -309,18 +309,21 @@ class Person(object):
         return check_needed_role
 
     def check_compatability(self,other, loud = False):
+    ## assuming that self is a mentee and other is a mentor!
         check_avoid = (not (self.name in other.mentees_avoid or self.name in other.mentors_avoid or
         other.name in self.mentees_avoid or other.name in self.mentors_avoid) and self is not other)
         if loud and not check_avoid: print('check neither on avoid lists', check_avoid, '\n mentee name', self.name, '\n mentor avoid list:', other.mentees_avoid,'\n mentor name', other.name, '\n mentee avoid list', self.mentors_avoid)
         #now checking that there is not relation yet, assuming other is always the mentor)
         check_relation = (other not in self.mentor_matches and self not in other.mentee_matches)
         if loud and not check_relation: print('check that this exact relation does not exist yet', check_relation, '\n mentee name', self.name, '\n mentor\'s matches:', other.mentee_matches,'\n mentor name', other.name, '\n mentee\'s matches:', self.mentor_matches)
+        
+        ## check roles should be redundant with the check_mentor_available and check_mentee_needed checks above!
         # now checking that mentee wants a mentor from that role, and the mentor wants a mentee from that role
-        check_roles = (self.n_role_mentors[other.rank] > 0 and other.n_role_mentees[self.rank] > 0)
-        if loud and not check_roles: print('check that both want mentee/mentors from the right roles', check_roles, '\n mentor preference:', other.n_role_mentees[self.rank], '\n mentee preference', self.n_role_mentors[other.rank])
+        #check_roles = (self.n_role_mentors[other.rank] > 0 and other.n_role_mentees[self.rank] > 0)
+        #if loud and not check_roles: print('check that both want mentee/mentors from the right roles', check_roles, '\n mentor preference:', other.n_role_mentees[self.rank], '\n mentee preference', self.n_role_mentors[other.rank])
 
 
-        return (check_avoid and check_relation and check_roles)
+        return (check_avoid and check_relation) # and check_roles)
                 
     
 ## let's read in the data to some intelligible format and get rid of all those nans
@@ -426,16 +429,16 @@ def matching_round(people,network,loud=True):
 
 def find_mentor(network,mentee:Person,mentors,loud):
     mentors_avoided = ([])
+    mentors_alternative = ([])
     mentors_preferred = ([])
     mentors_prefer_mentee = ([])
     for mentor in mentors:
-        ## first, check that the mentor has available spots for this mentee
-        if (mentor.check_mentor_available(mentee) and mentee.check_mentor_needed(mentor)):
-            ## then remove mentors to avoid
-            ## also remove mentors that want to avoid this mentee
-            ## also remove mentors who don't want to mentor someone in mentees role, or are more junior
-            ## also remove mentors with roles from which the mentee does not want a mentor
-            if mentee.check_compatability(mentor, loud=False):
+        ##remove mentors to avoid
+        ## also remove mentors that want to avoid this mentee
+        ## and check that the mentor still has available spots for a mentee in this role
+        if (mentee.check_compatability(mentor, loud=False) and mentor.check_mentor_available(mentee)):
+            ## check that this mentee still needs a mentor of that role
+            if  (mentee.check_mentor_needed(mentor)):
                 mentors_avoided.append(mentor)
                 ## check for preferred mentors by this mentee
                 if mentor.name in mentee.mentors_prefr:
@@ -443,26 +446,29 @@ def find_mentor(network,mentee:Person,mentors,loud):
                 ## check for mentors that prefer this mentee
                 if mentee.name in mentor.mentees_prefr:
                     mentors_prefer_mentee.append(mentor)
-    ## the while loop is for double checking. We may want to keep this to check other optimizations, but as it is now it is (should be) redundant
-    keep_going = True
-    while keep_going:
-        if len(mentors_preferred):
-            ## there is a preferred mentor still available
-            prosp_mentor = random.choice(mentors_preferred)
-        elif len(mentors_prefer_mentee):
-            ## there is a mentor that prefers this mentee available
-            prosp_mentor = random.choice(mentors_prefer_mentee)
-        elif len(mentors_avoided) == 0:
-            print ('Mentee ', mentee, ' cannot be matched to a mentor any more that satisfies all mentee+mentors requirements!')
-            ##TODO: need to decide how to handle these cases?
-            return
+            ## provide alternative option?? I'll put it here to see if this works. Then we can include this in the survey (i.e. Q: "if the number of mentors from the roles you specified are not all available, would you be open to alternative mentor suggesitons (which you can then accept or decline)?"
+            ## For now only provide alternatives for mentees as mentors can provide all the flexibility they have in the form.
+            ## check that the mentor is more senior than the mentee (didn't do peer because that is complicated)
+            elif (mentor.rank > mentee.rank):
+                mentors_alternative.append(mentor)
+    if len(mentors_preferred):
+        ## there is a preferred mentor still available
+        prosp_mentor = random.choice(mentors_preferred)
+    elif len(mentors_prefer_mentee):
+        ## there is a mentor that prefers this mentee available
+        prosp_mentor = random.choice(mentors_prefer_mentee)
+    elif len(mentors_avoided) == 0:
+        if len(mentors_alternative):
+            prosp_mentor = random.choice(mentors_alternative)
+            if loud: print ('Mentee ', mentee, ' cannot be matched to a mentor of desired role, but will get another suggestion:', prosp_mentor)
         else:
-            ## pick one from the general list with removed avoid mentors
-            prosp_mentor = random.choice(mentors_avoided)
-        ## we're now doing a double check (this one is loud), which shouldn't be needed; together with the while loop this should be redundant because the same checks are done earlier.
-        if mentee.check_compatability(prosp_mentor, loud):
-            add_relationship(network,prosp_mentor,mentee)
-            keep_going = False
+            if loud: print ('Mentee ', mentee, ' cannot be matched to a mentor any more that satisfies all mentee+mentors requirements!')
+                ##TODO: need to decide how to handle these cases?
+            return
+    else:
+        ## pick one from the general list with removed avoid mentors
+        prosp_mentor = random.choice(mentors_avoided)
+    add_relationship(network,prosp_mentor,mentee)
             
 def add_relationship(network,mentor,mentee):
     mentee.mentor_matches.append(mentor)
