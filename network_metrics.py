@@ -125,7 +125,7 @@ def run_frac_mentees_alternatives(people,network):
         if (person.n_mentors_total):
             denom+=1
             ## check if for any role a mentee got assigned more mentors than requested. This should be alternatives in that case
-            if (np.any(person.n_role_mentors - person.has_n_role_mentors) < 0):
+            if (np.any(person.n_role_mentors - person.has_n_role_mentors < 0)):
                 num += 1
     return num/denom
 

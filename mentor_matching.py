@@ -394,6 +394,8 @@ def reduce_full_tables(names_df,mentees_df,mentors_df):
 def generate_network(names_df,mentees_df,mentors_df,loud=True):
     people = reduce_full_tables(names_df,mentees_df,mentors_df)
     network = nx.MultiDiGraph()
+    ## do all direct matching first before going into the rounds
+    direct_matching(people,network,loud)
     mentors,mentees = matching_round(people,network,loud)
     nmentors,nmentees = len(mentors),len(mentees)
     while True:
@@ -404,6 +406,17 @@ def generate_network(names_df,mentees_df,mentors_df,loud=True):
         nmentees = this_nmentees
         
     return people,network
+    
+def direct_matching(people,network,loud=True):
+    ## just brute-forcing it for now. Can go through all possible combinations more efficiently of course
+    for person in people.values():
+        for other in people.values():
+            ## check if they both prefer each other as mentee/mentor (either way)
+            if (person.name in other.mentees_prefr and other.name in person.mentors_prefr):
+                    ## double check for compatibility and availability
+                    if (person.check_compatability(other, loud=False) and other.check_mentor_available(person) and person.check_mentor_needed(other)):
+                        add_relationship(network,other,person)
+                
                 
 def matching_round(people,network,loud=True):
     ## make a list of people who want at least 1 mentor, sorted s.t. people who
@@ -428,7 +441,7 @@ def matching_round(people,network,loud=True):
     return mentors,mentees
 
 def find_mentor(network,mentee:Person,mentors,loud):
-    mentors_avoided = ([])
+    mentors_acceptable = ([])
     mentors_alternative = ([])
     mentors_preferred = ([])
     mentors_prefer_mentee = ([])
@@ -439,7 +452,7 @@ def find_mentor(network,mentee:Person,mentors,loud):
         if (mentee.check_compatability(mentor, loud=False) and mentor.check_mentor_available(mentee)):
             ## check that this mentee still needs a mentor of that role
             if  (mentee.check_mentor_needed(mentor)):
-                mentors_avoided.append(mentor)
+                mentors_acceptable.append(mentor)
                 ## check for preferred mentors by this mentee
                 if mentor.name in mentee.mentors_prefr:
                     mentors_preferred.append(mentor)
@@ -457,7 +470,7 @@ def find_mentor(network,mentee:Person,mentors,loud):
     elif len(mentors_prefer_mentee):
         ## there is a mentor that prefers this mentee available
         prosp_mentor = random.choice(mentors_prefer_mentee)
-    elif len(mentors_avoided) == 0:
+    elif len(mentors_acceptable) == 0:
         if len(mentors_alternative):
             prosp_mentor = random.choice(mentors_alternative)
             if loud: print ('Mentee ', mentee, ' cannot be matched to a mentor of desired role, but will get another suggestion:', prosp_mentor)
@@ -467,7 +480,7 @@ def find_mentor(network,mentee:Person,mentors,loud):
             return
     else:
         ## pick one from the general list with removed avoid mentors
-        prosp_mentor = random.choice(mentors_avoided)
+        prosp_mentor = random.choice(mentors_acceptable)
     add_relationship(network,prosp_mentor,mentee)
             
 def add_relationship(network,mentor,mentee):
