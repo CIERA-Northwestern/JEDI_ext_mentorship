@@ -1,5 +1,6 @@
 import itertools
 import networkx as nx
+import numpy as np
 
 def run_frac_mentees_with_a_mentor(people,network):
     """ Count the fraction of people who requested mentors
@@ -112,6 +113,21 @@ def run_frac_any_avoid(people,network):
                 num+=1
                 break
     return num/len(people)
+    
+def run_frac_mentees_alternatives(people,network):
+    """ Count the fraction of mentees who
+        got matched with alternative mentors
+        from different roles than they requested
+        This should be minimized"""
+    num = 0
+    denom = 0
+    for person in people.values():
+        if (person.n_mentors_total):
+            denom+=1
+            ## check if for any role a mentee got assigned more mentors than requested. This should be alternatives in that case
+            if (np.any(person.n_role_mentors - person.has_n_role_mentors) < 0):
+                num += 1
+    return num/denom
 
 def run_mean_clique_size(people, network):
     # get the mean clique size for the network.  Presumably this should be maximized
@@ -159,7 +175,8 @@ def run_all_metrics(people,network):
         run_frac_mentees_atleast_one_preference,
         run_frac_any_avoid,
         run_mean_clique_size,
-        run_n_cliques_gt2]
+        run_n_cliques_gt2,
+        run_frac_mentees_alternatives]
 
     metric_values = [metric(people,network) for metric in metrics]
 
