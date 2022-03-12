@@ -70,6 +70,8 @@ class Person(object):
         self.n_mentors_prefr = 0
         self.n_mentees_avoid = 0
         self.n_mentors_avoid = 0
+
+        self.n_mentors_prefr_for_sorting = 0
         
         ## how many times does this person
         ##  appear in others' lists
@@ -385,6 +387,14 @@ def reduce_full_tables(names_df,mentees_df,mentors_df):
         this_person.n_mentees_avoid += len(this_person.mentees_avoid)
         this_person.n_mentors_prefr += len(this_person.mentors_prefr)
         this_person.n_mentors_avoid += len(this_person.mentors_avoid)
+
+        ## people who don't have any preferences should
+        ##  go last if we're sorting by increasing number 
+        ##  of preferences (to match the pickiest people first)
+        this_person.n_mentors_prefr_for_sorting = (
+            this_person.n_mentors_prefr if 
+            this_person.n_mentors_prefr > 0 else
+            100)
         
         this_person.n_mentees_total += np.sum(this_person.n_role_mentees)
         this_person.n_mentors_total += np.sum(this_person.n_role_mentors)
