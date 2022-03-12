@@ -66,14 +66,10 @@ class Person(object):
         self.mentees_avoid = []
         self.mentors_avoid = []
         
-        ## I may regret this... trying to keep 
-        ##  variable names as short as possible
-        ##  length of above lists so we can use attrgetter
-        ##  to sort
-        self.n_ee_p = 0
-        self.n_or_p = 0
-        self.n_ee_a = 0
-        self.n_or_a = 0
+        self.n_mentees_prefr = 0
+        self.n_mentors_prefr = 0
+        self.n_mentees_avoid = 0
+        self.n_mentors_avoid = 0
         
         ## how many times does this person
         ##  appear in others' lists
@@ -385,10 +381,10 @@ def reduce_full_tables(names_df,mentees_df,mentors_df):
     for this_person in people.values():
         ## count preferences so we can sort by them in assignment step
         this_person.validate_prefr_avoid(name_ranks)
-        this_person.n_ee_p += len(this_person.mentees_prefr)
-        this_person.n_ee_a += len(this_person.mentees_avoid)
-        this_person.n_or_p += len(this_person.mentors_prefr)
-        this_person.n_or_a += len(this_person.mentors_avoid)
+        this_person.n_mentees_prefr += len(this_person.mentees_prefr)
+        this_person.n_mentees_avoid += len(this_person.mentees_avoid)
+        this_person.n_mentors_prefr += len(this_person.mentors_prefr)
+        this_person.n_mentors_avoid += len(this_person.mentors_avoid)
         
         this_person.n_mentees_total += np.sum(this_person.n_role_mentees)
         this_person.n_mentors_total += np.sum(this_person.n_role_mentors)
@@ -420,14 +416,23 @@ def generate_network(names_df,mentees_df,mentors_df,loud=True):
     return people,network
     
 def direct_matching(people,network,loud=True):
-    ## just brute-forcing it for now. Can go through all possible combinations more efficiently of course
-    for person in people.values():
+    ## sort such that people with the fewest mentors requested get 
+    ##  matched first (ties broken by rank and those ties broken by
+    ##  the number of people preferenced) in the unlikely event 
+    ##  that a mentor's availability is filled up.
+    mentees = sorted([
+        value for value in people.values() if 
+        ((value.n_mentors_total-len(value.mentor_matches))>0 and  ## only match those who need matches
+        value.n_mentors_prefr > 0)], ## only keep mentees that actually have prefered mentors
+        key=attrgetter("n_mentors_total","rank","n_mentors_prefr"),
+        reverse=False)
+    for person in mentees:
         for other_name in person.mentors_prefr:
             other:Person = people[other_name]
             ## check if they both prefer each other as mentee/mentor (either way)
             if (person.name in other.mentees_prefr):
                 ## double check for compatibility and availability
-                if (person.check_compatability(other, loud=False) and 
+                if (person.check_compatability(other, loud=loud) and 
                     other.check_mentor_available(person) and 
                     person.check_mentor_needed(other)):
                     add_relationship(network,other,person,loud=True)
