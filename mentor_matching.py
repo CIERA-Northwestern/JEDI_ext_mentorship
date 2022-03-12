@@ -95,6 +95,9 @@ class Person(object):
         
         self.mentor_matches = []
         self.mentee_matches = []
+
+        self.has_n_mentees = 0
+        self.has_n_mentors = 0
         
         self.mentees_remaining = None
         self.mentors_remaining = None
@@ -282,6 +285,15 @@ class Person(object):
             print('other prefer mentor/mentee:',f'{self.n_other_or_p} {self.n_other_ee_p}')
         print('------')
         print()
+    
+    def print_status(self):
+        print(self)
+        print('nmentors:',f'{self.n_mentors_total:0.0f}',self.n_role_mentors)
+        print('matched :',f'{self.has_n_mentors:0.0f}',self.has_n_role_mentors)
+        print('------')
+        print('nmentees:',f'{self.n_mentees_total:0.0f}',self.n_role_mentees,f'({self.n_mentees_max})')
+        print('matched :',f'{self.has_n_mentees:0.0f}',self.has_n_role_mentees)
+        print()
         
 
     def check_mentor_available(self, mentee):
@@ -410,12 +422,15 @@ def generate_network(names_df,mentees_df,mentors_df,loud=True):
 def direct_matching(people,network,loud=True):
     ## just brute-forcing it for now. Can go through all possible combinations more efficiently of course
     for person in people.values():
-        for other in people.values():
+        for other_name in person.mentors_prefr:
+            other:Person = people[other_name]
             ## check if they both prefer each other as mentee/mentor (either way)
-            if (person.name in other.mentees_prefr and other.name in person.mentors_prefr):
-                    ## double check for compatibility and availability
-                    if (person.check_compatability(other, loud=False) and other.check_mentor_available(person) and person.check_mentor_needed(other)):
-                        add_relationship(network,other,person)
+            if (person.name in other.mentees_prefr):
+                ## double check for compatibility and availability
+                if (person.check_compatability(other, loud=False) and 
+                    other.check_mentor_available(person) and 
+                    person.check_mentor_needed(other)):
+                    add_relationship(network,other,person,loud=True)
                 
                 
 def matching_round(people,network,loud=True):
@@ -483,9 +498,21 @@ def find_mentor(network,mentee:Person,mentors,loud):
         prosp_mentor = random.choice(mentors_acceptable)
     add_relationship(network,prosp_mentor,mentee)
             
-def add_relationship(network,mentor,mentee):
+def add_relationship(network,mentor:Person,mentee:Person,loud:bool=False):
+    ## update the mentee's status
     mentee.mentor_matches.append(mentor)
     mentee.has_n_role_mentors[mentor.rank] += 1
+    mentee.has_n_mentors += 1
+
+    ## update the mentor's status
     mentor.mentee_matches.append(mentee)
     mentor.has_n_role_mentees[mentee.rank] += 1
-    network.add_edge(mentor,mentee)
+    mentor.has_n_mentees += 1
+
+    if loud: 
+        print(f"matched mentee: {mentee} with mentor: {mentor}")
+        mentee.print_status()
+        mentor.print_status()
+
+    ## add edge to the network
+    return network.add_edge(mentor,mentee)
