@@ -431,8 +431,8 @@ def direct_matching(people,network,loud=True):
     ##  the number of people preferenced) in the unlikely event 
     ##  that a mentor's availability is filled up.
     mentees = sorted([
-        value for value in people.values() if 
-        ((value.n_mentors_total-len(value.mentor_matches))>0 and  ## only match those who need matches
+        value for value in people.values() if (
+        value.mentors_remaining > 0 and  ## only match those who need matches
         value.n_mentors_prefr > 0)], ## only keep mentees that actually have prefered mentors
         key=attrgetter("n_mentors_total","rank","n_mentors_prefr"),
         reverse=False)
@@ -452,14 +452,14 @@ def matching_round(people,network,loud=True):
     ## make a list of people who want at least 1 mentor, sorted s.t. people who
     ##  are most junior first with ties broken by how many mentors they want
     mentees = sorted([
-        value for value in people.values() if (value.n_mentors_total-len(value.mentor_matches))>0],
-        key=attrgetter("n_mentors_total"),
+        value for value in people.values() if 
+        value.mentors_remaining > 0],
         reverse=False)
     mentees = sorted(mentees,key=attrgetter("rank"),reverse=False)
 
-    ## make a list of people who are willing to mentor
+    ## make a list of people who are (still) willing to mentor
     mentors = sorted([
-        value for value in people.values() if (value.n_mentees_total-len(value.mentee_matches))>0],
+        value for value in people.values() if (value.mentees_remaining)>0],
         key=attrgetter("n_mentees_total"),
         reverse=False)
     mentors = sorted(mentors,key=attrgetter("rank"),reverse=True)
@@ -518,11 +518,13 @@ def add_relationship(network,mentor:Person,mentee:Person,loud:bool=False):
     mentee.mentor_matches.append(mentor)
     mentee.has_n_role_mentors[mentor.rank] += 1
     mentee.has_n_mentors += 1
+    mentee.mentors_remaining -= 1
 
     ## update the mentor's status
     mentor.mentee_matches.append(mentee)
     mentor.has_n_role_mentees[mentee.rank] += 1
     mentor.has_n_mentees += 1
+    mentor.mentees_remaining -=1
 
     if loud: 
         print(f"matched mentee: {mentee} with mentor: {mentor}")
