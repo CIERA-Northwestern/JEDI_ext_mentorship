@@ -412,16 +412,26 @@ def reduce_full_tables(names_df,mentees_df,mentors_df):
 def generate_network(names_df,mentees_df,mentors_df,loud=True):
     people = reduce_full_tables(names_df,mentees_df,mentors_df)
     network = nx.MultiDiGraph()
+    max_rounds = np.max([value.n_mentors_total for value in people.values()])
+    ## add an extra 5 rounds just for good luck in case we have a couple
+    ##  of rounds where matching failed and we want to try again
+    max_rounds += 5
     ## do all direct matching first before going into the rounds
     direct_matching(people,network,loud)
-    mentors,mentees = matching_round(people,network,loud)
-    nmentors,nmentees = len(mentors),len(mentees)
-    while True:
-        mentors,mentees = matching_round(people,network,loud)
-        this_nmentors,this_nmentees = len(mentors),len(mentees)
-        if nmentors == this_nmentors and nmentees == this_nmentees: break
-        nmentors = this_nmentors
-        nmentees = this_nmentees
+    mentors,mentees = matching_round(people,network,0,loud)
+    ## index each of the matching rounds. 
+    ##  Only those mentees with Nmentor <= round_index
+    ##  are considered eligible for matching. 
+    ##  (this can come into play if someone had many
+    ##  direct matches or if we eventually match a mentee with
+    ##  multiple mentors in a single round; e.g. to create a pod).
+    ##  NOTE: ^ to be clear, this is not implemented, just an idea
+    for round_index in range(1,int(max_rounds)):
+        ## do a matching round
+        mentors,mentees = matching_round(people,network,round_index,loud)
+        ## count the remaining mentors and mentees
+        ##  if we ran out of one or the other then let's give up
+        if len(mentors) == 0 or len(mentees) == 0: break
         
     return people,network
     
@@ -448,14 +458,20 @@ def direct_matching(people,network,loud=True):
                     add_relationship(network,other,person,loud=True)
                 
                 
-def matching_round(people,network,loud=True):
-    ## make a list of people who want at least 1 mentor, sorted s.t. people who
-    ##  are most junior first with ties broken by how many mentors they want
+def matching_round(people,network,round_index=0,loud=True):
+    ## make a list of people who want at least 1 additional mentor, 
+    ##  sorted s.t. people who want the fewest mentors are first, 
+    ##  with ties broken by number of people prefered (so that people
+    ##  with preferences have a better chance of getting those filled)
+    ##  and then matching people randomly in order of rank
+    ##  If a grad student specifically asks for a postdoc they should
+    ##  be matched before an undergrad is randomly assigned IMO.
     mentees = sorted([
         value for value in people.values() if 
-        value.mentors_remaining > 0],
+        value.mentors_remaining > 0 and 
+        value.has_n_mentors <= (round_index)],
+        key=attrgetter("n_mentors_total","n_mentors_prefr_for_sorting","rank"),
         reverse=False)
-    mentees = sorted(mentees,key=attrgetter("rank"),reverse=False)
 
     ## make a list of people who are (still) willing to mentor
     mentors = sorted([
