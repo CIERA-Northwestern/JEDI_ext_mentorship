@@ -62,6 +62,7 @@ class Person(object):
         else: return f"{self.role[0]}"#+"$_{"+f"({self.has_n_mentees},{self.has_n_mentors}"+")}$"
     
     def __init__(self,name,role,raise_error=False):
+        self.initials = ''.join([part[0] for part in name.split(' ')])
         self.name = name.replace(' ','')
         self.role = role
         self.raise_error = raise_error
@@ -461,7 +462,7 @@ def direct_matching(people,network,loud=True):
                 if (person.check_compatability(other, loud=loud) and 
                     other.check_mentor_available(person) and 
                     person.check_mentor_needed(other)):
-                    add_relationship(network,other,person,loud=True)
+                    add_relationship(network,other,person)
                 
                 
 def matching_round(people,network,round_index=0,loud=True):
