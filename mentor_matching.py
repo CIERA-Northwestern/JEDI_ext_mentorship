@@ -54,8 +54,12 @@ mentor_answers_end = {
 
 ## workhorse class for accessing preference data
 class Person(object):
-    def __repr__(self):
-        return f"{self.role}: {self.name}"
+    def __lt__(self,other):
+        return self.rank < other.rank
+
+    def __repr__(self,only_role=True):
+        if not only_role: return f"{self.role}: {self.name}"
+        else: return f"{self.role[0]}"#+"$_{"+f"({self.has_n_mentees},{self.has_n_mentors}"+")}$"
     
     def __init__(self,name,role,raise_error=False):
         self.name = name.replace(' ','')
