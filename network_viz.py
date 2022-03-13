@@ -82,19 +82,21 @@ def draw_network(
     ##  step 1: separate into 'communities' maximizing 'modularity'
     ##  step 2: reintroduce edges into community for nodes that are part of other
     ##      communities. NOTE: a node may appear in multiple axes this way!
-    pods = get_pods(this_network)
+    pods,missing_edgess = get_pods(this_network)
 
 
     ## initialize matplotlib axes
-    fig,axs = plt.subplots(nrows=2,ncols=len(pods)//2+len(pods)%2)
+    fig,axs = plt.subplots(nrows=len(pods)//4+(len(pods)%4>0),ncols=4)
     axs = np.array(axs)
 
     ## draw each 'pod' in its own separate axis
-    for ax,this_pod in zip(axs.flatten(),pods):
+    for ax,this_pod,missing_edges in zip(axs.flatten(),pods,missing_edgess):
  
         nodes = list(this_pod.nodes)
         edges = list(this_pod.edges.keys())
         print(nodes)
+        this_pod.add_edges_from(missing_edges)
+        anti_nodes = [node for node in this_pod.nodes if node not in nodes]
     
         if simple_pos:
             ## manually position each node according to their rank
@@ -121,24 +123,32 @@ def draw_network(
 
         ## draw each component of the graph separately
         ##  nodes
-        nx.draw_networkx_nodes(
-            this_pod,
-            pos_dict,
-            ax=ax,
-            node_color=[color_map[node.role] for node in nodes])
+        for shape,llist in zip(['o','*'],[nodes,anti_nodes]):
+            nx.draw_networkx_nodes(
+                this_pod,
+                pos_dict,
+                ax=ax,
+                node_shape=shape,
+                node_color=[color_map[node.role] for node in llist],
+                nodelist=llist)
+
         ##  labels
         nx.draw_networkx_labels(
             this_pod,
             pos_dict,
+            labels=dict([(node,f"{node.initials}") for node in this_pod.nodes]),
             ax=ax)
 
         ##  edges, arrows point from mentor -> mentee
-        nx.draw_networkx_edges(
-            this_pod,
-            pos_dict,
-            ax=ax,
-            edge_color=get_edge_colors(edges),
-            width=2)
+        for style,llist in zip(['-','--'],[edges,missing_edges]):
+            nx.draw_networkx_edges(
+                this_pod,
+                pos_dict,
+                ax=ax,
+                edge_color=get_edge_colors(llist),
+                style=style,
+                width=2,
+                edgelist=llist)
 
         ## annotate any remaining mentor (o) or mentee (x) spots
         dx = np.diff(ax.get_xlim())[0]
@@ -148,6 +158,7 @@ def draw_network(
 
         ax.axis('off')
         ax.set_aspect(1)
+        ax.set_xlim(left=-0.5)
     
     for ax in axs.flatten(): ax.axis('off')
                     

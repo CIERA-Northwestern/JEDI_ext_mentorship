@@ -7,12 +7,13 @@ def get_pods(this_network):
         communities. NOTE: a node may appear in multiple axes this way! """
 
     pods = []
+    missing_edgess = []
 
     ## used to figure out which edges are missing in a community
     all_edges = set(this_network.edges.keys())
 
     ## split into communities, maximizing modularity (apparently)
-    comms = nx_comm.greedy_modularity_communities(this_network)
+    comms = nx_comm.greedy_modularity_communities(this_network,resolution=1)
 
     for comm in comms:
         ## make a copy so we can edit the graph
@@ -27,10 +28,11 @@ def get_pods(this_network):
         print(this_comm,'but missing',len(missing_edges),'edges')
 
         ## reintroduce edges to community to form a 'pod'
-        this_comm.add_edges_from(missing_edges)
+        #this_comm.add_edges_from(new_missing_edges)
         pods += [this_comm]
+        missing_edgess += [missing_edges]
 
-    return pods
+    return pods,missing_edgess
 
 def find_missing_edges(all_edges,sub_nodes,sub_edges):
     """ Find edges that exist in the graph but not 
@@ -43,4 +45,4 @@ def find_missing_edges(all_edges,sub_nodes,sub_edges):
     sub_edges = set(sub_edges)
 
     ## take set difference
-    return expanded_edges-sub_edges
+    return list(expanded_edges-sub_edges)
