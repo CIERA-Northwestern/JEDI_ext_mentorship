@@ -95,7 +95,8 @@ def draw_network(
             ## start offset so that you don't end up with a faculty
             ##  member mentoring an undergrad and you can't tell
             ##  whether the arrow starts at a postdoc or grad, for example.
-            role_counts = np.zeros(4) + [0,1,1,0]
+            np.random.seed(seed)
+            role_counts = np.zeros(4) + [0,np.random.random(),np.random.random(),0]
             for node in list(this_pod.nodes):
                 role_counts[node.rank]+=1
                 pos_dict[node] = [node.rank,role_counts[node.rank]]
