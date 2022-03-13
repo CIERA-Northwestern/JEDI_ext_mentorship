@@ -49,9 +49,6 @@ def draw_remaining_spots(ax,nodes,pos_dict,dr=0.2):
         node:Person = node ## for typehinting
         x,y = pos_dict[node]
 
-        if node.mentees_remaining > GLOBAL_max_mentees:
-            print(node.name)
-            import pdb; pdb.set_trace()
         remaining_spots = ''
         remaining_spots += 'o'*int(node.mentees_remaining)
         remaining_spots += 'x'*int(node.mentors_remaining)
@@ -98,7 +95,7 @@ def draw_network(
             ## start offset so that you don't end up with a faculty
             ##  member mentoring an undergrad and you can't tell
             ##  whether the arrow starts at a postdoc or grad, for example.
-            role_counts = np.zeros(4)#2*np.arange(4)
+            role_counts = np.zeros(4) + [0,1,1,0]
             for node in list(this_pod.nodes):
                 role_counts[node.rank]+=1
                 pos_dict[node] = [node.rank,role_counts[node.rank]]
