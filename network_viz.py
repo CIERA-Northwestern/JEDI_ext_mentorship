@@ -57,20 +57,35 @@ def draw_remaining_spots(ax,nodes,pos_dict,dr=0.2):
         x,y = pos_dict[node]
 
         remaining_spots = ''
-        remaining_spots += 'o'*int(node.mentees_remaining)
-        remaining_spots += 'x'*int(node.mentors_remaining)
+        flags = []
+        mentors_remaining = node.n_role_mentors-node.has_n_role_mentors 
+        mentees_remaining = node.n_role_mentees-node.has_n_role_mentees 
+        ## didn't offer to take more than the global maximum
+        if np.sum(mentors_remaining) == node.mentors_remaining:
+            for char,n in zip('ugpf',mentors_remaining):
+                if n <= 0: continue
+                remaining_spots+=char*int(n)
+                flags = np.append(flags,np.repeat(0,n))
+        else: pass 
+        for char,n in zip('ugpf',mentees_remaining):
+            if n <= 0: continue
+            remaining_spots+=char*int(n)
+            flags = np.append(flags,np.repeat(1,n))
 
         thetas = np.linspace(0,2*np.pi,len(remaining_spots),endpoint=False)+np.pi/2
 
         dxs = np.cos(thetas)*dr
         dys = np.sin(thetas)*dr
 
-        for dx,dy,this_char in zip(dxs,dys,remaining_spots):
+        for dx,dy,this_char,flag in zip(dxs,dys,remaining_spots,flags):
             ax.text(x+dx,y+dy,
                 this_char,
                 verticalalignment='center',
                 horizontalalignment='center',
-                c='r')
+                c='magenta' if not flag else 'red',
+                fontsize=12)
+
+
 
 def draw_network(
     this_network,
@@ -160,7 +175,11 @@ def draw_network(
         ax.set_aspect(1)
         ax.set_xlim(left=-0.5)
     
-    for ax in axs.flatten(): ax.axis('off')
+    for ax in axs.flatten(): 
+        ax.axis('off')
+        if ax.is_last_col() and ax.is_last_row():
+            ax.text(0.5,1,'willing to mentor',c='red',transform=ax.transAxes,ha='center',va='center',fontsize=12)
+            ax.text(0.5,.95,'requesting mentor',c='magenta',transform=ax.transAxes,ha='center',va='center',fontsize=12)
                     
     ## format the figure to minimize whitespace
     fig.subplots_adjust(wspace=0,hspace=0,left=0,right=1,bottom=0,top=1)
