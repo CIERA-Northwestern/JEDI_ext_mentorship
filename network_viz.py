@@ -33,10 +33,10 @@ def get_edge_colors(edges):
         mentor:Person = mentor ## for typehinting
         mentee:Person = mentee ## for typehinting
 
-        if mentor.name in mentee.mentors_prefr: color = 'lightgreen'
-        elif  mentee.name in mentor.mentees_prefr: color = 'darkgreen'
-        elif (mentor.name in mentee.mentors_prefr and 
+        if (mentor.name in mentee.mentors_prefr and 
             mentee.name in mentor.mentees_prefr): color = 'gold'
+        elif mentor.name in mentee.mentors_prefr: color = 'lightgreen'
+        elif  mentee.name in mentor.mentees_prefr: color = 'darkgreen'
         else: color = 'k'
 
         ## add this color to the list
