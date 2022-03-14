@@ -4,7 +4,7 @@ import numpy as np
 import networkx as nx
 
 from mentor_matching import Person,GLOBAL_max_mentees
-from network_analysis import get_pods
+from network_analysis import get_pods,find_planar_crossing_edges
 
 hexcols = ['#332288', '#88CCEE', '#44AA99', '#117733', '#999933', '#DDCC77', 
            '#CC6677', '#882255', '#AA4499', '#661100', '#6699CC', '#AA4466',
@@ -19,15 +19,57 @@ color_map = {
     'Postdocs':colors[2],
     'Faculty':colors[3] }
 
-def add_force_directed(graph,pos_dict:dict,seed:int=100):
+def iterate_force_directed(graph,pos_dict):
+
+    i = 0 
+    fixed = find_good_nodes(graph,pos_dict)
+    while len(fixed) != len(graph.nodes) and i < 50:
+        new_pos_dict = add_force_directed(graph,pos_dict,50+i,fixed=fixed if len(fixed) else None)
+        new_fixed = find_good_nodes(graph,pos_dict)
+        i+=1
+        if len(new_fixed) < len(fixed): continue
+        fixed = new_fixed
+        pos_dict = new_pos_dict
+    return pos_dict
+
+def find_good_nodes(graph,pos_dict):
+    exclude_nodes = []
+    crossing_edges = find_planar_crossing_edges(graph,pos_dict)
+    bad_nodes = list(graph.edge_subgraph(crossing_edges).nodes)
+
+    count = dict(zip(bad_nodes,np.zeros(len(bad_nodes))))
+
+    for j,edge1 in enumerate(crossing_edges[::2]):
+        edge2 = crossing_edges[2*j+1]
+        these_nodes = list(edge1[:2])+list(edge2[:2])
+        for node in these_nodes:
+            count[node]+=1
+
+    for j,edge1 in enumerate(crossing_edges[::2]):
+        edge2 = crossing_edges[2*j+1]
+        these_nodes = np.array(list(edge1[:2])+list(edge2[:2]))
+        this_count = np.zeros(4)
+        for i,node in enumerate(these_nodes): this_count[i] = count[node]
+
+        these_nodes = these_nodes[np.argsort(this_count)[::-1]]
+        for node in these_nodes: 
+            if node not in exclude_nodes: 
+                exclude_nodes.append(node)
+                break
+
+    fixed = [node for node in graph.nodes if node not in exclude_nodes]
+    return fixed
+
+def add_force_directed(graph,pos_dict:dict,seed:int=100,fixed=None):
 
     pos_dict = nx.spring_layout(
         graph,
-        k=10, ## target distance between nodes
-        weight=1, ## attraction between nodes
+        k=.01, ## target distance between nodes
+        weight=100, ## attraction between nodes
         pos=pos_dict, ## initial position
         iterations=1000,
-        seed=seed)
+        seed=seed,
+        fixed=fixed)
 
     return pos_dict
 
@@ -127,14 +169,13 @@ def draw_network(
 
             max_counts = np.max(role_counts)
             for node in list(this_pod.nodes): pos_dict[node][0]*=max_counts/role_counts.shape[0]
-        else:
+        else: pos_dict = nx.kamada_kawai_layout(this_pod)
             ## position the nodes in 2d space. kamada_kawai minimizes edge length and 
             ##  force_directed (spring) indirectly minimizes edge crossings 
             ##  (it's an NP hard problem apparently this is the best one can do).
-            pos_dict = add_force_directed(
-                this_pod,
-                nx.kamada_kawai_layout(this_pod),
-                seed=seed)
+
+        try: pos_dict = nx.planar_layout(this_pod,scale=0.1)
+        except: pos_dict = iterate_force_directed(this_pod,pos_dict)
 
         ## draw each component of the graph separately
         ##  nodes
@@ -165,6 +206,17 @@ def draw_network(
                 width=2,
                 edgelist=llist)
 
+        crossing_edges = find_planar_crossing_edges(this_pod,pos_dict)
+        if len(crossing_edges):
+            nx.draw_networkx_edges(
+                this_pod,
+                pos_dict,
+                ax=ax,
+                edge_color='red',
+                style='-',
+                width=2,
+                edgelist=crossing_edges)
+
         ## annotate any remaining mentor (o) or mentee (x) spots
         dx = np.diff(ax.get_xlim())[0]
         dy = np.diff(ax.get_ylim())[0]
@@ -172,8 +224,8 @@ def draw_network(
         draw_remaining_spots(ax,nodes,pos_dict,dr=dr/30)
 
         ax.axis('off')
-        ax.set_aspect(1)
-        ax.set_xlim(left=-0.5)
+        #ax.set_aspect(1)
+        #ax.set_xlim(left=-0.5)
     
     for ax in axs.flatten(): 
         ax.axis('off')
