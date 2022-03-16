@@ -1,6 +1,37 @@
 import numpy as np
 import networkx.algorithms.community as nx_comm
 
+class Point(object):
+    def __repr__(self):
+        return f"({self.x:.2f},{self.y:.2f})"
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    
+    def contained_in_domain(self,p_other1,p_other2):
+        ## swap so other1 is left-most
+        if p_other2.x < p_other1.x: p_other1,p_other2 = p_other2,p_other1
+
+        return p_other1.x-1e-3 < self.x < p_other2.x+1e-3
+    
+    def contained_in_range(self,p_other1,p_other2):
+        if p_other2.y < p_other1.y: p_other1,p_other2 = p_other2,p_other1
+
+        return p_other1.y-1e-3 < self.y < p_other2.y+1e-3
+    
+    def share_x(self,other): return np.isclose(self.x,other.x)
+    def share_y(self,other): return np.isclose(self.y,other.y)
+
+    def on_line(self,p_other1,p_other2):
+        ## swap so other1 is left-most
+        if p_other2.x < p_other1.x: p_other1,p_other2 = p_other2,p_other1
+        m = (p_other2.y - p_other1.y)/(p_other2.x-p_other1.x)
+
+        return np.isclose((self.x-p_other1.x)*m+p_other1.y,self.y)
+    
+    def distance(self,other):
+        return np.sqrt((self.x-other.x)**2+(self.y-other.y)**2)
+
 def get_pods(this_network):
     """ partition into "pods," constructed in 2 steps:
         step 1: separate into 'communities' maximizing 'modularity'
@@ -63,37 +94,35 @@ def find_planar_crossing_edges(graph,pos_dict):
 
     return crosses
 
+def find_overlapping_nodes(graph,pos_dict,thresh=0.5):
+    items = list(pos_dict.items())
+    bad_nodes = []
+    for i,(node1,pos1) in enumerate(items):
+        for node2,pos2 in items[i:]:
+            p1 = Point(*pos1)
+            p2 = Point(*pos2)
+            if p1.distance(p2) < thresh: bad_nodes += [node1,node2]
+    return set(bad_nodes)
+
+
 def determine_if_cross(edge1,edge2,pos_dict):
     # y-y0 = m(x-x0) + b
     node1a = edge1[0]
     node1b = edge1[1]
-    x1a,y1a = pos_dict[node1a]
-    x1b,y1b = pos_dict[node1b]
 
     node2a = edge2[0]
     node2b = edge2[1]
-    x2a,y2a = pos_dict[node2a]
-    x2b,y2b = pos_dict[node2b]
 
+    p1a = Point(*pos_dict[node1a])
+    p1b = Point(*pos_dict[node1b])
+    if p1a.x > p1b.x: p1a,p1b = p1b,p1a
 
-    xs = [x1a,x1b,x2a,x2b]
-    ys = [y1a,y1b,y2a,y2b]
-    xmin,xmax = np.min(xs),np.max(xs)
-    ymin,ymax = np.min(ys),np.max(ys)
+    p2a = Point(*pos_dict[node2a])
+    p2b = Point(*pos_dict[node2b])
+    if p2a.x > p2b.x: p2a,p2b = p2b,p2a
 
-    if np.isclose(x1a,x1b) and np.isclose(x2a,x2b): 
-        ## two vertical lines that overlap
-        if np.isclose(x1a,x2b): return True
-        ## two vertical lines that do not overlap
-        else: return False
-    
-    m1 = (y1b-y1a)/(x1b-x1a)
-    m2 = (y2b-y2a)/(x2b-x2a)
-    if np.isinf(m1): m1 = 0
-    if np.isinf(m2): m2 = 0
-
-    ## parallel lines (but not vertical)
-    if np.isclose(m1,m2): return False
+    m1 = (p1b.y-p1a.y)/(p1b.x-p1a.x)
+    m2 = (p2b.y-p2a.y)/(p2b.x-p2a.x)
 
     # y - y1a = m1(x-x1a)
     # y - y2a = m2(x-x2a)
@@ -103,24 +132,38 @@ def determine_if_cross(edge1,edge2,pos_dict):
 
     #[-m1 , 1][x] = [-m1x1a + y1a] -> [x] = ([-m1 , 1])^-1 [-m1x1a + y1a]
     #[-m2 , 1][y] = [-m2x2a + y2a] -> [y] = ([-m2 , 1])    [-m2x2a + y2a]
-    for x1,y1 in zip([x1a,x1b],[y1a,y1b]):
-        for x2,y2 in zip([x2a,x2b],[y2a,y2b]):
-            if np.isclose(x1,x2) and np.isclose(y1,y2): return False 
-            vec = np.array([-m1*x1+y1,-m2*x2+y2]).reshape(2,1)
 
+    vert_1 = p1a.share_x(p1b)
+    vert_2 = p2a.share_x(p2b)
+
+    ## parallel lines don't cross unless they are co-linear
+    if m1 == m2 and not (vert_1 and vert_2): return(
+        p1a.on_line(p2a,p2b) or
+        p1b.on_line(p2a,p2b) or
+        p2a.on_line(p1a,p1b) or
+        p2b.on_line(p1a,p1b))
+    
+    node_set = set([node1a,node1b,node2a,node2b])
+    if len(node_set) < 4 and not (vert_1 and vert_2): return False
+
+    if vert_1 and vert_2 and p1a.share_x(p2a):
+        return (
+        p1a.contained_in_range(p2a,p2b) or 
+        p1b.contained_in_range(p2a,p2b) or 
+        p2a.contained_in_range(p1a,p1b) or 
+        p2b.contained_in_range(p1a,p1b))
+    elif vert_1 and p1a.contained_in_domain(p2a,p2b):
+        pcross = Point(p1a.x,m2*(p1a.x-p2a.x)+p2a.y)
+        return pcross.contained_in_range(p1a,p1b)
+    elif vert_2 and p2a.contained_in_domain(p1a,p1b):
+        pcross = Point(p2a.x,m1*(p2a.x-p1a.x)+p1a.y)
+        return pcross.contained_in_range(p2a,p2b)
+
+    ## choose this combination of points to make a vector of point slope form
+    vec = np.array([-m1*p1a.x+p1a.y,-m2*p2a.x+p2a.y]).reshape(2,1)
     mat = np.array([[-m1,1],[-m2,1]])
-    try:
-        xcross,ycross = np.matmul(np.linalg.inv(mat),vec)[:,0]
-    except:
-        print(mat,vec)
-        import pdb; pdb.set_trace()
-
-    cross = True
-    for x1,y1 in zip([x1a,x2a],[y1a,y2a]):
-        for x2,y2 in zip([x1b,x2b],[y1b,y2b]):
-            xbad = (x1<xcross<x2 or x1>xcross>x2)
-            ybad = (y1<ycross<y2 or y1>ycross>y2)
-            #if np.isclose(x1,xcross) or np.isclose(x2,xcross): return False
-            #if np.isclose(y1,ycross) or np.isclose(y2,ycross): return False
-            cross = (cross and xbad)# and ybad)
-    return cross
+    xcross,ycross = np.matmul(np.linalg.inv(mat),vec)[:,0]
+    return ( Point(xcross,ycross).contained_in_domain(p1a,p1b) and
+        Point(xcross,ycross).contained_in_domain(p2a,p2b) and
+        Point(xcross,ycross).contained_in_range(p1a,p1b) and
+        Point(xcross,ycross).contained_in_range(p2a,p2b))
