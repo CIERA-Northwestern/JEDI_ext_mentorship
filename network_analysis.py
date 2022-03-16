@@ -79,6 +79,20 @@ def find_missing_edges(all_edges,sub_nodes,sub_edges):
     ## take set difference
     return list(expanded_edges-sub_edges)
 
+def detangle_edges(graph,pos_dict):
+
+    keep_going = True
+    crossing_edges = find_planar_crossing_edges(graph,pos_dict)
+    all_nodes = list(graph.nodes)
+
+    for i,node1 in enumerate(all_nodes):
+        for node2 in all_nodes[i+1:]:
+            new_pos_dict = {**pos_dict}
+            new_pos_dict[node1],new_pos_dict[node2] = pos_dict[node2],pos_dict[node1]
+            new_crossing_edges = find_planar_crossing_edges(graph,new_pos_dict)
+            if len(new_crossing_edges) < len(crossing_edges): return detangle_edges(graph,new_pos_dict)
+
+    return pos_dict
 
 def find_planar_crossing_edges(graph,pos_dict):
     ## could be useful: 
