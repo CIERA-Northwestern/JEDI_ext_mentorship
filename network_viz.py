@@ -4,7 +4,7 @@ import numpy as np
 import networkx as nx
 
 from mentor_matching import Person,GLOBAL_max_mentees
-from network_analysis import get_pods,find_planar_crossing_edges
+from network_analysis import detangle_edges, get_pods,find_planar_crossing_edges,find_overlapping_nodes
 
 hexcols = ['#332288', '#88CCEE', '#44AA99', '#117733', '#999933', '#DDCC77', 
            '#CC6677', '#882255', '#AA4499', '#661100', '#6699CC', '#AA4466',
@@ -19,46 +19,96 @@ color_map = {
     'Postdocs':colors[2],
     'Faculty':colors[3] }
 
-def iterate_force_directed(graph,pos_dict):
+def iterate_random(
+    graph,
+    pos_dict,
+    force_directed=False,
+    iter_max=1000,
+    only_change_one_at_a_time=True):
 
     i = 0 
-    fixed = find_good_nodes(graph,pos_dict)
-    while len(fixed) != len(graph.nodes) and i < 50:
-        new_pos_dict = add_force_directed(graph,pos_dict,50+i,fixed=fixed if len(fixed) else None)
-        new_fixed = find_good_nodes(graph,pos_dict)
+    all_nodes = set(graph.nodes)
+
+    ## determine how bad this setup is w.r.t. edge crossings
+    crossing_edges = find_planar_crossing_edges(graph,pos_dict)
+    ## nodes that participate in edge crossings
+    bad_nodes = set(graph.edge_subgraph(crossing_edges).nodes)
+    ## subset of bad nodes which have small number of edge crossings
+    ##  or are nodes that are overlapping
+    worse_nodes = pick_nodes_to_change(
+        graph,
+        pos_dict,
+        crossing_edges,
+        bad_nodes,
+        only_change_one_at_a_time=only_change_one_at_a_time)
+
+    ## nodes that will not be nudged
+    fixed = all_nodes - worse_nodes
+
+    ## try to improve the graph by nudging nodes that are not in fixed
+    while len(crossing_edges) and i < iter_max:
+        ## nudge using spring_layout
+        if force_directed: new_pos_dict = add_force_directed(graph,pos_dict,100+i,fixed=fixed if len(fixed) else None)
+        ## nudge using a gaussian for dx,dy 
+        ##  centered on 0 and of width magnitude
+        else: new_pos_dict = add_random(
+            graph,
+            pos_dict,
+            i, ## seed
+            fixed=fixed if len(fixed) else None,
+            magnitude=2)
+
+        ## determine how bad this setup is w.r.t. edge crossings
+        new_crossing_edges = find_planar_crossing_edges(graph,pos_dict)
+        new_bad_nodes = set(graph.edge_subgraph(new_crossing_edges).nodes)
+        new_worse_nodes = pick_nodes_to_change(
+            graph,
+            new_pos_dict,
+            new_crossing_edges,
+            new_bad_nodes,
+            only_change_one_at_a_time=only_change_one_at_a_time)
+        new_fixed = all_nodes - new_worse_nodes
         i+=1
-        if len(new_fixed) < len(fixed): continue
-        fixed = new_fixed
-        pos_dict = new_pos_dict
+
+        ## we reduced the number of crossings,
+        ##  accept the change
+        if len(new_bad_nodes)<=len(bad_nodes):
+            print(len(bad_nodes),len(new_bad_nodes))
+            fixed = new_fixed
+            bad_nodes = new_bad_nodes
+            pos_dict = new_pos_dict
+            crossing_edges = new_crossing_edges
+
     return pos_dict
 
-def find_good_nodes(graph,pos_dict):
-    exclude_nodes = []
-    crossing_edges = find_planar_crossing_edges(graph,pos_dict)
-    bad_nodes = list(graph.edge_subgraph(crossing_edges).nodes)
+def pick_nodes_to_change(
+    graph,
+    pos_dict,
+    crossing_edges,
+    bad_nodes,
+    only_change_one_at_a_time=True):
+
+    worse_nodes = []
 
     count = dict(zip(bad_nodes,np.zeros(len(bad_nodes))))
 
+    ## count how many times each edge crosses another
     for j,edge1 in enumerate(crossing_edges[::2]):
         edge2 = crossing_edges[2*j+1]
         these_nodes = list(edge1[:2])+list(edge2[:2])
-        for node in these_nodes:
-            count[node]+=1
+        for node in these_nodes: count[node]+=1
+    
+    nodes = np.array(list(count.keys()))
+    counts = np.array(list(count.values()))
+    nodes = nodes[counts>0]
+    counts = counts[counts>0]
+    nodes = nodes[np.argsort(counts)]
 
-    for j,edge1 in enumerate(crossing_edges[::2]):
-        edge2 = crossing_edges[2*j+1]
-        these_nodes = np.array(list(edge1[:2])+list(edge2[:2]))
-        this_count = np.zeros(4)
-        for i,node in enumerate(these_nodes): this_count[i] = count[node]
-
-        these_nodes = these_nodes[np.argsort(this_count)[::-1]]
-        for node in these_nodes: 
-            if node not in exclude_nodes: 
-                exclude_nodes.append(node)
-                break
-
-    fixed = [node for node in graph.nodes if node not in exclude_nodes]
-    return fixed
+    if only_change_one_at_a_time and len(nodes)>0: 
+        return set([nodes[0]]).union(find_overlapping_nodes(graph,pos_dict))
+    else: 
+        return set(nodes).union(find_overlapping_nodes(graph,pos_dict))
+    
 
 def add_force_directed(graph,pos_dict:dict,seed:int=100,fixed=None):
 
@@ -72,6 +122,18 @@ def add_force_directed(graph,pos_dict:dict,seed:int=100,fixed=None):
         fixed=fixed)
 
     return pos_dict
+
+def add_random(graph,pos_dict,seed,fixed,magnitude=10):
+    if fixed is None: fixed = []
+
+    new_pos_dict = {**pos_dict}
+    for node in list(graph.nodes): 
+        if node in fixed: continue
+        x,y = pos_dict[node]
+        x = np.random.normal(x,magnitude)
+        y = np.random.normal(y,magnitude)
+        new_pos_dict[node] = [x,y]
+    return new_pos_dict
 
 def get_edge_colors(edges):
     colors = []
@@ -131,9 +193,10 @@ def draw_remaining_spots(ax,nodes,pos_dict,dr=0.2):
 
 def draw_network(
     this_network,
-    simple_pos:bool=False,
+    simple_pos:bool=True,
     scale_fact:float=1,
-    seed:int=300):
+    seed:int=300,
+    add_missing_edges:bool=False):
 
     ## partition into "pods," constructed in 2 steps:
     ##  step 1: separate into 'communities' maximizing 'modularity'
@@ -147,14 +210,14 @@ def draw_network(
     axs = np.array(axs)
 
     ## draw each 'pod' in its own separate axis
-    for ax,this_pod,missing_edges in zip(axs.flatten(),pods,missing_edgess):
+    for i,(ax,this_pod,missing_edges) in enumerate(zip(axs.flatten(),pods,missing_edgess)):
+
  
         nodes = list(this_pod.nodes)
         edges = list(this_pod.edges.keys())
-        print(nodes)
-        this_pod.add_edges_from(missing_edges)
+        if add_missing_edges: this_pod.add_edges_from(missing_edges)
         anti_nodes = [node for node in this_pod.nodes if node not in nodes]
-    
+
         if simple_pos:
             ## manually position each node according to their rank
             pos_dict = {}
@@ -169,13 +232,16 @@ def draw_network(
 
             max_counts = np.max(role_counts)
             for node in list(this_pod.nodes): pos_dict[node][0]*=max_counts/role_counts.shape[0]
-        else: pos_dict = nx.kamada_kawai_layout(this_pod)
+        else: pos_dict = nx.shell_layout(this_pod)
             ## position the nodes in 2d space. kamada_kawai minimizes edge length and 
             ##  force_directed (spring) indirectly minimizes edge crossings 
             ##  (it's an NP hard problem apparently this is the best one can do).
 
-        try: pos_dict = nx.planar_layout(this_pod,scale=0.1)
-        except: pos_dict = iterate_force_directed(this_pod,pos_dict)
+        if i == 6: return_value = this_pod,pos_dict
+
+        #try: pos_dict = nx.planar_layout(this_pod,scale=0.1)
+        #except: pos_dict = iterate_force_directed(this_pod,pos_dict)
+        pos_dict = detangle_edges(this_pod,pos_dict)#iterate_random(this_pod,pos_dict,force_directed=False)
 
         ## draw each component of the graph separately
         ##  nodes
@@ -197,7 +263,7 @@ def draw_network(
 
         ##  edges, arrows point from mentor -> mentee
         for style,llist in zip(['-','--'],[edges,missing_edges]):
-            nx.draw_networkx_edges(
+            try: nx.draw_networkx_edges(
                 this_pod,
                 pos_dict,
                 ax=ax,
@@ -205,6 +271,7 @@ def draw_network(
                 style=style,
                 width=2,
                 edgelist=llist)
+            except: pass
 
         crossing_edges = find_planar_crossing_edges(this_pod,pos_dict)
         if len(crossing_edges):
@@ -239,4 +306,4 @@ def draw_network(
     fig.set_facecolor('white')
     fig.set_size_inches(2*len(pods)*scale_fact,6*scale_fact)
     fig.set_dpi(120)
-    return fig
+    return return_value
