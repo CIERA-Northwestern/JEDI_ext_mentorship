@@ -57,7 +57,7 @@ class Person(object):
     def __lt__(self,other):
         return self.rank < other.rank
 
-    def __repr__(self,only_role=True):
+    def __repr__(self,only_role=False):
         if not only_role: return f"{self.role}: {self.name}"
         else: return f"{self.role[0]}"#+"$_{"+f"({self.has_n_mentees},{self.has_n_mentors}"+")}$"
     
