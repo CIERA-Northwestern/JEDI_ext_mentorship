@@ -196,7 +196,8 @@ def draw_network(
     simple_pos:bool=True,
     scale_fact:float=1,
     seed:int=300,
-    add_missing_edges:bool=False):
+    add_missing_edges:bool=False,
+    debug_crossing_edges:bool=False):
 
     ## partition into "pods," constructed in 2 steps:
     ##  step 1: separate into 'communities' maximizing 'modularity'
@@ -273,16 +274,17 @@ def draw_network(
                 edgelist=llist)
             except: pass
 
-        crossing_edges = find_planar_crossing_edges(this_pod,pos_dict)
-        if len(crossing_edges):
-            nx.draw_networkx_edges(
-                this_pod,
-                pos_dict,
-                ax=ax,
-                edge_color='red',
-                style='-',
-                width=2,
-                edgelist=crossing_edges)
+        if debug_crossing_edges:
+            crossing_edges = find_planar_crossing_edges(this_pod,pos_dict)
+            if len(crossing_edges):
+                nx.draw_networkx_edges(
+                    this_pod,
+                    pos_dict,
+                    ax=ax,
+                    edge_color='red',
+                    style='-',
+                    width=2,
+                    edgelist=crossing_edges)
 
         ## annotate any remaining mentor (o) or mentee (x) spots
         dx = np.diff(ax.get_xlim())[0]
