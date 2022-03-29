@@ -156,17 +156,22 @@ class Person(object):
 
         if reported_role is not None: self.role = orig_role
         
+        ## flag to replace Any with min(global max, sum roles specified)
+        ##  for 'Number of mentees' mentor_role
+        replace_n_mentees_max = False
+
         for question,answer in zip(questions,answers[:-2]):
+            mentor_role = question.split('[')[1].split(']')[0]
+
             if answer == '5+': answer = GLOBAL_max_mentees
             elif answer == 'nan': answer = 0
+            elif answer == 'Any': 
+                answer = GLOBAL_max_mentees
+                ## flag to come back and make sure to replace this with the sum
+                ##  of the mentees in each role if that's smaller
+                if mentor_role == 'Number of mentees': replace_n_mentees_max = True
             else: answer = int(eval(answer)) 
             
-            
-            if self.role != 'Undergrads': mentor_role = question.split('[')[1].split(']')[0]
-            else: 
-                self.n_role_mentees[0] += answer
-                mentor_role = 'Number of mentees'
-            mentor_role = role_transformer[mentor_role]
             if mentor_role == 'Number of mentees': 
                 self.n_mentees_max += min(GLOBAL_max_mentees,answer)
                 continue
@@ -174,6 +179,10 @@ class Person(object):
         
             self.n_role_mentees[role_index]+= answer
         
+        ## if someone said they'd take any number of mentees, replace that max number with the sum of
+        ##  the roles they specified or the global max, whichever is smaller
+        if replace_n_mentees_max: 
+            self.n_mentees_max = min([GLOBAL_max_mentees,np.sum(self.n_role_mentees)])
     
     def check_role(self,row):
         reported_role = role_transformer[row['Role']]
@@ -262,6 +271,9 @@ class Person(object):
                 "First question should be years at institution.")
         
         self.years = eval(answers[0]) if answers[0]!='5+' else 9
+
+        ## find the first column (that isn't years) that is False (i.e. !='nan')
+        answers_start = np.argmin(answers[1:]=='nan')+1 ## skip first element, is years for all roles
         role_answers_start = role_answers_start_dict[self.role]
         role_answers_end = role_answers_end_dict[self.role]
         
@@ -273,12 +285,14 @@ class Person(object):
                 raise ValueError(
                     f"Something went wrong, answers start at {answers_start}" +
                     f"when they should start at {role_answers_start}")
-                
-            ## let's fill in 0 (since the questions that were skipped
-            ##  are for how many mentees you'd want)
-            answers[role_answers_start:answers_start] = '0'
-        
-        return row.keys()[4+role_answers_start:4+role_answers_end],answers[role_answers_start:role_answers_end]
+            elif answers_start > (role_answers_start):
+                raise IOError(
+                    "Data is not in correct format. "+
+                    "Answers start at a later column than expected.")
+                ## let's fill in 0 (since the questions that were skipped
+                ##  are for how many mentees you'd want) <--- not sure this is true anymore
+                answers[role_answers_start:answers_start] = '0'
+        return questions[role_answers_start:role_answers_end],answers[role_answers_start:role_answers_end]
     
     def print_preferences(self,show_appearances=False):
         print(self)
@@ -398,6 +412,19 @@ def reduce_full_tables(names_df,mentees_df,mentors_df):
         this_person.parse_row_role_mentor(this_row)
     
     for this_person in people.values():
+
+        ## remove the null "no"/"No" value if it appears
+        for llist in [
+            this_person.mentees_prefr,
+            this_person.mentees_avoid,
+            this_person.mentors_prefr,
+            this_person.mentors_avoid]:
+            popped = 0
+            for i in range(len(llist)):
+                if llist[i] in ['no','No']:
+                    llist.pop(i-popped)
+                    popped+=1
+
         ## count preferences so we can sort by them in assignment step
         this_person.validate_prefr_avoid(name_ranks)
         this_person.n_mentees_prefr += len(this_person.mentees_prefr)
