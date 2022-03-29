@@ -66,6 +66,7 @@ class Person(object):
         self.role = role
         self.raise_error = raise_error
         self.rank = role_ranks[self.role]
+        self.years = 0
         
         self.mentees_prefr = []
         self.mentors_prefr = []
@@ -253,7 +254,14 @@ class Person(object):
         
         ## find where in the row this person's answers start
         answers = np.array(row.values[4:],dtype=str)
-        answers_start = np.argmin(answers=='nan')
+        questions = np.array(row.keys()[4:],dtype=str)
+
+        if '[Years]' not in questions[0]: 
+            raise IOError(
+                "Data is not in correct format. "+
+                "First question should be years at institution.")
+        
+        self.years = eval(answers[0]) if answers[0]!='5+' else 9
         role_answers_start = role_answers_start_dict[self.role]
         role_answers_end = role_answers_end_dict[self.role]
         
@@ -319,8 +327,11 @@ class Person(object):
         # this is only relevant for mentees
         # check that the mentee needs a mentor from this role
         
-        # number in specific role is less than needed in that role
-        check_needed_role = (self.has_n_role_mentors[mentor.rank] < self.n_role_mentors[mentor.rank])
+        check_needed_role = (
+            # number in specific role is less than needed in that role
+            self.has_n_role_mentors[int(mentor.rank)] < self.n_role_mentors[int(mentor.rank)]
+            # mentor "outranks" the mentee (for peer mentoring, primarily)
+            and self.rank < mentor.rank)
 
         return check_needed_role
 
@@ -412,6 +423,10 @@ def reduce_full_tables(names_df,mentees_df,mentors_df):
         
         this_person.mentees_remaining = this_person.n_mentees_total
         this_person.mentors_remaining = this_person.n_mentors_total
+
+        ## add a fractional part to separate out years at institution
+        ##  anybody w/ 5+ has 9 -> 0.9
+        this_person.rank+=this_person.years/10
         
     return people
 
@@ -538,13 +553,13 @@ def find_mentor(network,mentee:Person,mentors,loud):
 def add_relationship(network,mentor:Person,mentee:Person,loud:bool=False):
     ## update the mentee's status
     mentee.mentor_matches.append(mentor)
-    mentee.has_n_role_mentors[mentor.rank] += 1
+    mentee.has_n_role_mentors[int(mentor.rank)] += 1
     mentee.has_n_mentors += 1
     mentee.mentors_remaining -= 1
 
     ## update the mentor's status
     mentor.mentee_matches.append(mentee)
-    mentor.has_n_role_mentees[mentee.rank] += 1
+    mentor.has_n_role_mentees[int(mentee.rank)] += 1
     mentor.has_n_mentees += 1
     mentor.mentees_remaining -=1
 
