@@ -7,48 +7,47 @@ GLOBAL_max_mentees = 6
 
 ## define some "constant" dictionaries that help us reformat the data
 role_transformer = {
-    'Undergraduate student':'Undergrads',
-    'Undergraduate students':'Undergrads',
-    'Graduate student':'GradStudents',
-    'Graduate students':'GradStudents',
-    'Postdoc':'Postdocs',
-    'Postdocs':'Postdocs',
+    'Undergraduate student':'Undergraduate Student',
+    'Undergraduate students':'Undergraduate Student',
+    'Graduate student':'Graduate Student',
+    'Graduate students':'Graduate Student',
+    'Postdoc':'Postdoc',
     'Faculty':'Faculty',
     'Number of mentees':'Number of mentees'
 }
 
 ## in order to rank order
 role_ranks = {
-    'Undergrads':0,
-    'GradStudents':1,
-    'Postdocs':2,
+    'Undergraduate Student':0,
+    'Graduate Student':1,
+    'Postdoc':2,
     'Faculty':3}
 
 ## define columns where we expect answers to start/end for mentees/mentors
 mentee_answers_start = {
-    'Undergrads':0,
-    'GradStudents':6,
-    'Postdocs':11,
-    'Faculty':15    
+    'Undergraduate Student':1,
+    'Graduate Student':7,
+    'Postdoc':12,
+    'Faculty':16    
 }
 
 mentee_answers_end = {
-    'Undergrads':mentee_answers_start['GradStudents'],
-    'GradStudents':mentee_answers_start['Postdocs'],
-    'Postdocs':mentee_answers_start['Faculty'],
+    'Undergraduate Student':mentee_answers_start['Graduate Student'],
+    'Graduate Student':mentee_answers_start['Postdoc'],
+    'Postdoc':mentee_answers_start['Faculty'],
     'Faculty':100} ## dummy index >> length of answers for slicing
 
 mentor_answers_start = {
-    'Undergrads':0,
-    'GradStudents':3,
-    'Postdocs':8,
-    'Faculty':14    
+    'Undergraduate Student':1,
+    'Graduate Student':4,
+    'Postdoc':9,
+    'Faculty':15    
 }
 
 mentor_answers_end = {
-    'Undergrads':mentor_answers_start['GradStudents'],
-    'GradStudents':mentor_answers_start['Postdocs'],
-    'Postdocs':mentor_answers_start['Faculty'],
+    'Undergraduate Student':mentor_answers_start['Graduate Student'],
+    'Graduate Student':mentor_answers_start['Postdoc'],
+    'Postdoc':mentor_answers_start['Faculty'],
     'Faculty':100} ## dummy index >> length of answers for slicing
 
 
@@ -129,7 +128,7 @@ class Person(object):
             mentor_role = question.split('[')[1].split(']')[0]
             mentor_role = mentor_role.split(' mentor')[0].split(' peer')[0]
             mentor_role = role_transformer[mentor_role]
-            role_index = ['Undergrads','GradStudents','Postdocs','Faculty'].index(mentor_role)
+            role_index = ['Undergraduate Student','Graduate Student','Postdoc','Faculty'].index(mentor_role)
         
             self.n_role_mentors[role_index]+= int(eval(answer)) if answer != 'nan' else 0
         
@@ -170,7 +169,7 @@ class Person(object):
             if mentor_role == 'Number of mentees': 
                 self.n_mentees_max += min(GLOBAL_max_mentees,answer)
                 continue
-            role_index = ['Undergrads','GradStudents','Postdocs','Faculty'].index(mentor_role)
+            role_index = ['Undergraduate Student','Graduate Student','Postdoc','Faculty'].index(mentor_role)
         
             self.n_role_mentees[role_index]+= answer
         
@@ -348,7 +347,7 @@ class Person(object):
 def reduce_full_tables(names_df,mentees_df,mentors_df):
     
     ## let's first separate the names into their respective roles and make a look-up table
-    roles = ['Faculty','Postdocs','GradStudents','Undergrads']
+    roles = ['Faculty','Postdoc','Graduate Student','Undergraduate Student']
     role_dict = {} ## name -> role
     for role in roles:
         this_names = names_df[role].dropna().values
