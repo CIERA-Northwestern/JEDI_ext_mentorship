@@ -7,48 +7,47 @@ GLOBAL_max_mentees = 6
 
 ## define some "constant" dictionaries that help us reformat the data
 role_transformer = {
-    'Undergraduate student':'Undergrads',
-    'Undergraduate students':'Undergrads',
-    'Graduate student':'GradStudents',
-    'Graduate students':'GradStudents',
-    'Postdoc':'Postdocs',
-    'Postdocs':'Postdocs',
+    'Undergraduate student':'Undergraduate Student',
+    'Undergraduate students':'Undergraduate Student',
+    'Graduate student':'Graduate Student',
+    'Graduate students':'Graduate Student',
+    'Postdoc':'Postdoc',
     'Faculty':'Faculty',
     'Number of mentees':'Number of mentees'
 }
 
 ## in order to rank order
 role_ranks = {
-    'Undergrads':0,
-    'GradStudents':1,
-    'Postdocs':2,
+    'Undergraduate Student':0,
+    'Graduate Student':1,
+    'Postdoc':2,
     'Faculty':3}
 
 ## define columns where we expect answers to start/end for mentees/mentors
 mentee_answers_start = {
-    'Undergrads':0,
-    'GradStudents':6,
-    'Postdocs':11,
-    'Faculty':15    
+    'Undergraduate Student':1,
+    'Graduate Student':7,
+    'Postdoc':12,
+    'Faculty':16    
 }
 
 mentee_answers_end = {
-    'Undergrads':mentee_answers_start['GradStudents'],
-    'GradStudents':mentee_answers_start['Postdocs'],
-    'Postdocs':mentee_answers_start['Faculty'],
+    'Undergraduate Student':mentee_answers_start['Graduate Student'],
+    'Graduate Student':mentee_answers_start['Postdoc'],
+    'Postdoc':mentee_answers_start['Faculty'],
     'Faculty':100} ## dummy index >> length of answers for slicing
 
 mentor_answers_start = {
-    'Undergrads':0,
-    'GradStudents':3,
-    'Postdocs':8,
-    'Faculty':14    
+    'Undergraduate Student':1,
+    'Graduate Student':4,
+    'Postdoc':9,
+    'Faculty':15    
 }
 
 mentor_answers_end = {
-    'Undergrads':mentor_answers_start['GradStudents'],
-    'GradStudents':mentor_answers_start['Postdocs'],
-    'Postdocs':mentor_answers_start['Faculty'],
+    'Undergraduate Student':mentor_answers_start['Graduate Student'],
+    'Graduate Student':mentor_answers_start['Postdoc'],
+    'Postdoc':mentor_answers_start['Faculty'],
     'Faculty':100} ## dummy index >> length of answers for slicing
 
 
@@ -67,6 +66,7 @@ class Person(object):
         self.role = role
         self.raise_error = raise_error
         self.rank = role_ranks[self.role]
+        self.years = 0
         
         self.mentees_prefr = []
         self.mentors_prefr = []
@@ -129,7 +129,7 @@ class Person(object):
             mentor_role = question.split('[')[1].split(']')[0]
             mentor_role = mentor_role.split(' mentor')[0].split(' peer')[0]
             mentor_role = role_transformer[mentor_role]
-            role_index = ['Undergrads','GradStudents','Postdocs','Faculty'].index(mentor_role)
+            role_index = ['Undergraduate Student','Graduate Student','Postdoc','Faculty'].index(mentor_role)
         
             self.n_role_mentors[role_index]+= int(eval(answer)) if answer != 'nan' else 0
         
@@ -156,24 +156,33 @@ class Person(object):
 
         if reported_role is not None: self.role = orig_role
         
+        ## flag to replace Any with min(global max, sum roles specified)
+        ##  for 'Number of mentees' mentor_role
+        replace_n_mentees_max = False
+
         for question,answer in zip(questions,answers[:-2]):
+            mentor_role = question.split('[')[1].split(']')[0]
+
             if answer == '5+': answer = GLOBAL_max_mentees
             elif answer == 'nan': answer = 0
+            elif answer == 'Any': 
+                answer = GLOBAL_max_mentees
+                ## flag to come back and make sure to replace this with the sum
+                ##  of the mentees in each role if that's smaller
+                if mentor_role == 'Number of mentees': replace_n_mentees_max = True
             else: answer = int(eval(answer)) 
             
-            
-            if self.role != 'Undergrads': mentor_role = question.split('[')[1].split(']')[0]
-            else: 
-                self.n_role_mentees[0] += answer
-                mentor_role = 'Number of mentees'
-            mentor_role = role_transformer[mentor_role]
             if mentor_role == 'Number of mentees': 
                 self.n_mentees_max += min(GLOBAL_max_mentees,answer)
                 continue
-            role_index = ['Undergrads','GradStudents','Postdocs','Faculty'].index(mentor_role)
+            role_index = ['Undergraduate Student','Graduate Student','Postdoc','Faculty'].index(mentor_role)
         
             self.n_role_mentees[role_index]+= answer
         
+        ## if someone said they'd take any number of mentees, replace that max number with the sum of
+        ##  the roles they specified or the global max, whichever is smaller
+        if replace_n_mentees_max: 
+            self.n_mentees_max = min([GLOBAL_max_mentees,np.sum(self.n_role_mentees)])
     
     def check_role(self,row):
         reported_role = role_transformer[row['Role']]
@@ -254,7 +263,17 @@ class Person(object):
         
         ## find where in the row this person's answers start
         answers = np.array(row.values[4:],dtype=str)
-        answers_start = np.argmin(answers=='nan')
+        questions = np.array(row.keys()[4:],dtype=str)
+
+        if '[Years]' not in questions[0]: 
+            raise IOError(
+                "Data is not in correct format. "+
+                "First question should be years at institution.")
+        
+        self.years = eval(answers[0]) if answers[0]!='5+' else 9
+
+        ## find the first column (that isn't years) that is False (i.e. !='nan')
+        answers_start = np.argmin(answers[1:]=='nan')+1 ## skip first element, is years for all roles
         role_answers_start = role_answers_start_dict[self.role]
         role_answers_end = role_answers_end_dict[self.role]
         
@@ -266,12 +285,14 @@ class Person(object):
                 raise ValueError(
                     f"Something went wrong, answers start at {answers_start}" +
                     f"when they should start at {role_answers_start}")
-                
-            ## let's fill in 0 (since the questions that were skipped
-            ##  are for how many mentees you'd want)
-            answers[role_answers_start:answers_start] = '0'
-        
-        return row.keys()[4+role_answers_start:4+role_answers_end],answers[role_answers_start:role_answers_end]
+            elif answers_start > (role_answers_start):
+                raise IOError(
+                    "Data is not in correct format. "+
+                    "Answers start at a later column than expected.")
+                ## let's fill in 0 (since the questions that were skipped
+                ##  are for how many mentees you'd want) <--- not sure this is true anymore
+                answers[role_answers_start:answers_start] = '0'
+        return questions[role_answers_start:role_answers_end],answers[role_answers_start:role_answers_end]
     
     def print_preferences(self,show_appearances=False):
         print(self)
@@ -320,8 +341,11 @@ class Person(object):
         # this is only relevant for mentees
         # check that the mentee needs a mentor from this role
         
-        # number in specific role is less than needed in that role
-        check_needed_role = (self.has_n_role_mentors[mentor.rank] < self.n_role_mentors[mentor.rank])
+        check_needed_role = (
+            # number in specific role is less than needed in that role
+            self.has_n_role_mentors[int(mentor.rank)] < self.n_role_mentors[int(mentor.rank)]
+            # mentor "outranks" the mentee (for peer mentoring, primarily)
+            and self.rank < mentor.rank)
 
         return check_needed_role
 
@@ -348,7 +372,7 @@ class Person(object):
 def reduce_full_tables(names_df,mentees_df,mentors_df):
     
     ## let's first separate the names into their respective roles and make a look-up table
-    roles = ['Faculty','Postdocs','GradStudents','Undergrads']
+    roles = ['Faculty','Postdoc','Graduate Student','Undergraduate Student']
     role_dict = {} ## name -> role
     for role in roles:
         this_names = names_df[role].dropna().values
@@ -388,6 +412,19 @@ def reduce_full_tables(names_df,mentees_df,mentors_df):
         this_person.parse_row_role_mentor(this_row)
     
     for this_person in people.values():
+
+        ## remove the null "no"/"No" value if it appears
+        for llist in [
+            this_person.mentees_prefr,
+            this_person.mentees_avoid,
+            this_person.mentors_prefr,
+            this_person.mentors_avoid]:
+            popped = 0
+            for i in range(len(llist)):
+                if llist[i] in ['no','No']:
+                    llist.pop(i-popped)
+                    popped+=1
+
         ## count preferences so we can sort by them in assignment step
         this_person.validate_prefr_avoid(name_ranks)
         this_person.n_mentees_prefr += len(this_person.mentees_prefr)
@@ -413,6 +450,10 @@ def reduce_full_tables(names_df,mentees_df,mentors_df):
         
         this_person.mentees_remaining = this_person.n_mentees_total
         this_person.mentors_remaining = this_person.n_mentors_total
+
+        ## add a fractional part to separate out years at institution
+        ##  anybody w/ 5+ has 9 -> 0.9
+        this_person.rank+=this_person.years/10
         
     return people
 
@@ -540,13 +581,13 @@ def find_mentor(network,mentee:Person,mentors,loud):
 def add_relationship(network,mentor:Person,mentee:Person,loud:bool=False):
     ## update the mentee's status
     mentee.mentor_matches.append(mentor)
-    mentee.has_n_role_mentors[mentor.rank] += 1
+    mentee.has_n_role_mentors[int(mentor.rank)] += 1
     mentee.has_n_mentors += 1
     mentee.mentors_remaining -= 1
 
     ## update the mentor's status
     mentor.mentee_matches.append(mentee)
-    mentor.has_n_role_mentees[mentee.rank] += 1
+    mentor.has_n_role_mentees[int(mentee.rank)] += 1
     mentor.has_n_mentees += 1
     mentor.mentees_remaining -=1
 
