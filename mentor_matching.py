@@ -3,6 +3,8 @@ from operator import attrgetter
 import random
 import networkx as nx
 
+GLOBAL_max_mentees = 6
+
 ## define some "constant" dictionaries that help us reformat the data
 role_transformer = {
     'Undergraduate student':'Undergrads',
@@ -52,10 +54,15 @@ mentor_answers_end = {
 
 ## workhorse class for accessing preference data
 class Person(object):
-    def __repr__(self):
-        return f"{self.role}: {self.name}"
+    def __lt__(self,other):
+        return self.rank < other.rank
+
+    def __repr__(self,only_role=False):
+        if not only_role: return f"{self.role}: {self.name}"
+        else: return f"{self.role[0]}"#+"$_{"+f"({self.has_n_mentees},{self.has_n_mentors}"+")}$"
     
     def __init__(self,name,role,raise_error=False):
+        self.initials = ''.join([part[0] for part in name.split(' ')])
         self.name = name.replace(' ','')
         self.role = role
         self.raise_error = raise_error
@@ -150,7 +157,7 @@ class Person(object):
         if reported_role is not None: self.role = orig_role
         
         for question,answer in zip(questions,answers[:-2]):
-            if answer == '5+': answer = 10
+            if answer == '5+': answer = GLOBAL_max_mentees
             elif answer == 'nan': answer = 0
             else: answer = int(eval(answer)) 
             
@@ -161,7 +168,7 @@ class Person(object):
                 mentor_role = 'Number of mentees'
             mentor_role = role_transformer[mentor_role]
             if mentor_role == 'Number of mentees': 
-                self.n_mentees_max += answer
+                self.n_mentees_max += min(GLOBAL_max_mentees,answer)
                 continue
             role_index = ['Undergrads','GradStudents','Postdocs','Faculty'].index(mentor_role)
         
@@ -396,7 +403,7 @@ def reduce_full_tables(names_df,mentees_df,mentors_df):
             this_person.n_mentors_prefr > 0 else
             100)
         
-        this_person.n_mentees_total += np.sum(this_person.n_role_mentees)
+        this_person.n_mentees_total += min(np.sum(this_person.n_role_mentees),this_person.n_mentees_max)
         this_person.n_mentors_total += np.sum(this_person.n_role_mentors)
         
         ## loop through dictionary and count how many times this person
@@ -455,6 +462,7 @@ def direct_matching(people,network,loud=True):
                 if (person.check_compatability(other, loud=loud) and 
                     other.check_mentor_available(person) and 
                     person.check_mentor_needed(other)):
+                  
                     add_relationship(network,other,person,loud=loud)
                 
                 
