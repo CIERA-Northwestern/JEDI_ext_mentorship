@@ -8,8 +8,10 @@ GLOBAL_max_mentees = 6
 ## define some "constant" dictionaries that help us reformat the data
 role_transformer = {
     'Undergraduate student':'Undergraduate Student',
+    'Undergraduate Student':'Undergraduate Student',
     'Undergraduate students':'Undergraduate Student',
     'Graduate student':'Graduate Student',
+    'Graduate Student':'Graduate Student',
     'Graduate students':'Graduate Student',
     'Postdoc':'Postdoc',
     'Faculty':'Faculty',
@@ -129,7 +131,7 @@ class Person(object):
             mentor_role = question.split('[')[1].split(']')[0]
             mentor_role = mentor_role.split(' mentor')[0].split(' peer')[0]
             mentor_role = role_transformer[mentor_role]
-            role_index = ['Undergraduate Student','Graduate Student','Postdoc','Faculty'].index(mentor_role)
+            role_index = ['Undergraduate Student','Graduate Student','Postdoc','Faculty'].index(role_transformer[mentor_role])
         
             self.n_role_mentors[role_index]+= int(eval(answer)) if answer != 'nan' else 0
         
@@ -175,7 +177,7 @@ class Person(object):
             if mentor_role == 'Number of mentees': 
                 self.n_mentees_max += min(GLOBAL_max_mentees,answer)
                 continue
-            role_index = ['Undergraduate Student','Graduate Student','Postdoc','Faculty'].index(mentor_role)
+            role_index = ['Undergraduate Student','Graduate Student','Postdoc','Faculty'].index(role_transformer[mentor_role])
         
             self.n_role_mentees[role_index]+= answer
         
@@ -332,7 +334,7 @@ class Person(object):
         check_available = (len(self.mentee_matches) < self.n_mentees_max)
         
         # number in specific role is less than max in that role
-        check_available_role = (self.has_n_role_mentees[mentee.rank] < self.n_role_mentees[mentee.rank])
+        check_available_role = (self.has_n_role_mentees[int(np.floor(mentee.rank))] < self.n_role_mentees[int(np.floor(mentee.rank))])
 
         return (check_available and check_available_role)
 
@@ -496,15 +498,16 @@ def direct_matching(people,network,loud=True):
         reverse=False)
     for person in mentees:
         for other_name in person.mentors_prefr:
-            other:Person = people[other_name]
-            ## check if they both prefer each other as mentee/mentor (either way)
-            if (person.name in other.mentees_prefr):
-                ## double check for compatibility and availability
-                if (person.check_compatability(other, loud=loud) and 
-                    other.check_mentor_available(person) and 
-                    person.check_mentor_needed(other)):
-                  
-                    add_relationship(network,other,person,loud=loud)
+            if (other_name in people):
+                other:Person = people[other_name]
+                ## check if they both prefer each other as mentee/mentor (either way)
+                if (person.name in other.mentees_prefr):
+                    ## double check for compatibility and availability
+                    if (person.check_compatability(other, loud=loud) and 
+                        other.check_mentor_available(person) and 
+                        person.check_mentor_needed(other)):
+                      
+                        add_relationship(network,other,person,loud=loud)
                 
                 
 def matching_round(people,network,round_index=0,loud=True):

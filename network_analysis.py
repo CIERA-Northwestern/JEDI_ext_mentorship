@@ -32,7 +32,7 @@ class Point(object):
     def distance(self,other):
         return np.sqrt((self.x-other.x)**2+(self.y-other.y)**2)
 
-def get_pods(this_network):
+def get_pods(this_network, resolution = 1, loud = False):
     """ partition into "pods," constructed in 2 steps:
         step 1: separate into 'communities' maximizing 'modularity'
         step 2: reintroduce edges into community for nodes that are part of other
@@ -45,7 +45,7 @@ def get_pods(this_network):
     all_edges = set(this_network.edges.keys())
 
     ## split into communities, maximizing modularity (apparently)
-    comms = nx_comm.greedy_modularity_communities(this_network,resolution=1)
+    comms = nx_comm.greedy_modularity_communities(this_network,resolution=resolution)
 
     for comm in comms:
         ## make a copy so we can edit the graph
@@ -57,7 +57,8 @@ def get_pods(this_network):
             all_edges,
             list(this_comm.nodes),
             list(this_comm.edges.keys()))
-        print(this_comm,'but missing',len(missing_edges),'edges')
+        if (loud):
+            print(this_comm,'but missing',len(missing_edges),'edges')
 
         ## reintroduce edges to community to form a 'pod'
         #this_comm.add_edges_from(new_missing_edges)
