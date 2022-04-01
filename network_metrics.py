@@ -2,6 +2,8 @@ import itertools
 import networkx as nx
 import numpy as np
 
+from mentor_matching import generate_network
+
 def run_frac_mentees_with_a_mentor(people,network):
     """ Count the fraction of people who requested mentors
         but did not receive any mentor"""
@@ -181,3 +183,121 @@ def run_all_metrics(people,network):
     metric_values = [metric(people,network) for metric in metrics]
 
     return metric_values,[metric.__name__.split('run_')[1] for metric in metrics]
+
+def run_weighted_metrics(people_list, network_list, metrics, combine_metric_method='multiply'):
+    '''
+    metrics is a list of dict's with each dict containing the following keys.
+        function : the name of the metric function (e.g., run_frac_mentees_with_a_mentor)
+        weight: a numerical weight to give to that metric
+        type: the type of weigthing to use.  Options include:
+            maximize : higher numbers get preference
+            minimize : lower numbers get prefererence
+            binary : non-zero numbers are converted to 1 (and given preference)
+            binary0: zeros are converted to 1 (and given preference); all other numbers are converted to zero
+        normalize : boolean, if True then the metric values are normalized to [0,1].  This step is performed before weighting
+
+    combine_metric_method can be either 'multiply' or 'mean', see code for both methods ('multiply is the default')
+
+    Note: if 'weight' is left blank or not included, then a weight of 1 in assumed
+    Note: if 'type'is left blank or not included, then no weighting is applied
+    Note: in the current version, if we want to "throw out" any runs (i.e, se the combined_metric to zero), 
+          we need to set combine_metric_method to 'multiply'
+    '''
+    def norm_metric(arr):
+        return (arr - min(arr))/(max(arr) - min(arr))
+
+    nruns = len(network_list)
+    nmetrics = len(metrics)
+
+    metric_values = np.zeros((nmetrics, nruns))
+    weighted_metric_values = np.zeros((nmetrics, nruns))
+    combined_metric = np.zeros(nruns)
+    metric_names = [] #for output plotting
+
+    # it would be nice to do this and the combined metric in one loop, 
+    # but I think in order to normalize the metric to [0,1] (an input option), we will need to first get 
+    #    values for that metric across all runs
+    for i,m in enumerate(metrics):
+
+        # populate this metric for all runs
+        metric = m['function']
+        metric_names.append(metric.__name__.split('run_')[1])
+
+        for j in range(nruns):
+            # run the metric
+            metric_values[i,j] = metric(people_list[j], network_list[j])
+
+        # perform the weighting and normalization (if necessary)
+        weighted_metric_values[i,:] = metric_values[i,:]
+
+        if ('normalize' in m):
+            if (m['normalize']):
+                weighted_metric_values[i,:] = norm_metric(metric_values[i,:])
+
+        if ('weight' not in m):
+            m['weight'] = 1
+
+        if ('type' in m):
+            if (m['type'] == 'maximize'):
+                weighted_metric_values[i,:] = m['weight']*weighted_metric_values[i,:]
+            elif (m['type'] == 'minimize'):
+                weighted_metric_values[i,:] = m['weight']*(1. - weighted_metric_values[i,:])
+            elif (m['type'] == 'binary'):
+                weighted_metric_values[i,:] = weighted_metric_values[i,:] > 0
+                weighted_metric_values[i,:] = m['weight']*weighted_metric_values[i,:].astype(int)
+            elif (m['type'] == 'binary0'):
+                weighted_metric_values[i,:] = weighted_metric_values[i,:] == 0
+                weighted_metric_values[i,:] = m['weight']*weighted_metric_values[i,:].astype(int)
+
+
+    # calculate the combined metric for each run
+    for j in range(nruns):
+
+        if (combine_metric_method == 'mean'):
+            # perform a weighted mean
+            numerator = 0.
+            denominator = 0.
+            for i,v in enumerate(weighted_metric_values[:,j]):
+                numerator += v
+                denominator += metrics[i]['weight']
+            combined_metric[j] = numerator/denominator
+        else:
+            # multiply the metric together and divide by the weights
+            numerator = 1.
+            denominator = 1.
+            for i,v in enumerate(weighted_metric_values[:,j]):
+                numerator *= v
+                denominator *= metrics[i]['weight']
+            combined_metric[j] = numerator/denominator
+
+
+    return {'raw_metrics':metric_values, 
+            'weighted_metrics':weighted_metric_values, 
+            'combined_metric':combined_metric, 
+            'metric_names':np.array(metric_names)
+            }
+
+def create_best_network(nruns, names_df, mentees_df, mentors_df, metrics, combine_metric_method='multiply', loud=False):
+    # wrapper to run all the code needed to create a network
+    
+    network_list = []
+    people_list = []
+    for i in range(nruns):
+        people, network = generate_network(names_df,mentees_df,mentors_df,loud)
+        network_list.append(network)
+        people_list.append(people)
+
+    output = run_weighted_metrics(people_list, network_list, metrics, combine_metric_method)
+
+    output['people_list'] = people_list
+    output['network_list'] = network_list
+
+    best_index = np.argmax(output['combined_metric'])
+    output['best'] = {
+        'people':people_list[best_index],
+        'network':network_list[best_index],
+        'combined_metric':output['combined_metric'][best_index],
+        'index':best_index,
+    }
+
+    return output
