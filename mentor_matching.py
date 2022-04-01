@@ -462,7 +462,8 @@ def direct_matching(people,network,loud=True):
                 if (person.check_compatability(other, loud=loud) and 
                     other.check_mentor_available(person) and 
                     person.check_mentor_needed(other)):
-                    add_relationship(network,other,person)
+                  
+                    add_relationship(network,other,person,loud=loud)
                 
                 
 def matching_round(people,network,round_index=0,loud=True):
@@ -502,7 +503,7 @@ def find_mentor(network,mentee:Person,mentors,loud):
         ##remove mentors to avoid
         ## also remove mentors that want to avoid this mentee
         ## and check that the mentor still has available spots for a mentee in this role
-        if (mentee.check_compatability(mentor, loud=False) and mentor.check_mentor_available(mentee)):
+        if (mentee.check_compatability(mentor, loud=loud) and mentor.check_mentor_available(mentee)):
             ## check that this mentee still needs a mentor of that role
             if  (mentee.check_mentor_needed(mentor)):
                 mentors_acceptable.append(mentor)
