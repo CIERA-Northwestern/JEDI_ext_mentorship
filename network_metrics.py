@@ -3,6 +3,7 @@ import networkx as nx
 import numpy as np
 
 from mentor_matching import generate_network
+from network_analysis import get_pods
 
 def run_frac_mentees_with_a_mentor(people,network):
     """ Count the fraction of people who requested mentors
@@ -165,6 +166,16 @@ def run_n_cliques_gt2(people, network):
 
     return get_n_cliques_gtN(network, 2)
 
+def run_network_modularity(people, network, resolution = 1):
+    # network modularity measurement : https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.community.quality.modularity.html
+    # We may want to try different resolution parameters, >1 favors larger communities, <1 favors smaller communities
+
+    # get the communities
+    pods, _ = get_pods(network, resolution = resolution)
+
+    # return the modularity
+    return nx.algorithms.community.modularity(network, pods, resolution = resolution)
+
 
 def run_all_metrics(people,network):
 
@@ -178,7 +189,8 @@ def run_all_metrics(people,network):
         run_frac_any_avoid,
         run_mean_clique_size,
         run_n_cliques_gt2,
-        run_frac_mentees_alternatives]
+        run_frac_mentees_alternatives,
+        run_network_modularity]
 
     metric_values = [metric(people,network) for metric in metrics]
 

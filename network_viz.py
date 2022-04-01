@@ -14,9 +14,9 @@ colors = [12, 3, 5, 6]
 colors = [hexcols[color] for color in colors]
 
 color_map = {
-    'Undergrads':colors[0],
-    'GradStudents':colors[1],
-    'Postdocs':colors[2],
+    'Undergraduate Student':colors[0],
+    'Graduate Student':colors[1],
+    'Postdoc':colors[2],
     'Faculty':colors[3] }
 
 def iterate_random(
@@ -205,6 +205,8 @@ def draw_network(
     ##      communities. NOTE: a node may appear in multiple axes this way!
     pods,missing_edgess = get_pods(this_network)
 
+    # AMG: set a return value, in case we don't reach the condition Alex set below 
+    return_value = False 
 
     ## initialize matplotlib axes
     fig,axs = plt.subplots(nrows=len(pods)//4+(len(pods)%4>0),ncols=4)
@@ -238,6 +240,7 @@ def draw_network(
             ##  force_directed (spring) indirectly minimizes edge crossings 
             ##  (it's an NP hard problem apparently this is the best one can do).
 
+        # AMG not sure why we are returning a value when i ==6??
         if i == 6: return_value = this_pod,pos_dict
 
         #try: pos_dict = nx.planar_layout(this_pod,scale=0.1)
