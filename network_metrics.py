@@ -289,7 +289,7 @@ def run_weighted_metrics(people_list, network_list, metrics, combine_metric_meth
             'metric_names':np.array(metric_names)
             }
 
-def create_best_network(nruns, names_df, mentees_df, mentors_df, metrics, combine_metric_method='multiply', loud=False):
+def create_best_network(nruns, names_df, mentees_df, mentors_df, metrics, nbest = 1, combine_metric_method='multiply', loud=False):
     # wrapper to run all the code needed to create a network
     
     network_list = []
@@ -304,12 +304,23 @@ def create_best_network(nruns, names_df, mentees_df, mentors_df, metrics, combin
     output['people_list'] = people_list
     output['network_list'] = network_list
 
-    best_index = np.argmax(output['combined_metric'])
-    output['best'] = {
-        'people':people_list[best_index],
-        'network':network_list[best_index],
-        'combined_metric':output['combined_metric'][best_index],
-        'index':best_index,
-    }
+    bestlist = ([])
+    sorted = output['combined_metric'].argsort()
+    best_index = sorted[::-1][:nbest]
+    for ibest in range(nbest):
+        if ibest == 0:
+            output['best'] = {
+            'people':people_list[best_index[ibest]],
+            'network':network_list[best_index[ibest]],
+            'combined_metric':output['combined_metric'][best_index[ibest]],
+            'index':best_index[ibest],
+            }
+        bestlist.append({'people':people_list[best_index[ibest]],
+            'network':network_list[best_index[ibest]],
+            'combined_metric':output['combined_metric'][best_index[ibest]],
+            'index':best_index[ibest],
+            })
+    output['bestlist'] = bestlist
+            
 
     return output
