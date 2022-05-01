@@ -191,13 +191,11 @@ def draw_remaining_spots(ax,nodes,pos_dict,dr=0.2):
 
 
 
-def draw_network(
+def get_positions(
     this_network,
     simple_pos:bool=True,
-    scale_fact:float=1,
     seed:int=300,
-    add_missing_edges:bool=False,
-    debug_crossing_edges:bool=False):
+    add_missing_edges:bool=False):
 
     ## partition into "pods," constructed in 2 steps:
     ##  step 1: separate into 'communities' maximizing 'modularity'
@@ -205,15 +203,10 @@ def draw_network(
     ##      communities. NOTE: a node may appear in multiple axes this way!
     pods,missing_edgess = get_pods(this_network)
 
-    # AMG: set a return value, in case we don't reach the condition Alex set below 
-    return_value = False 
-
-    ## initialize matplotlib axes
-    fig,axs = plt.subplots(nrows=len(pods)//4+(len(pods)%4>0),ncols=4)
-    axs = np.array(axs)
+    pos_dicts = []
 
     ## draw each 'pod' in its own separate axis
-    for i,(ax,this_pod,missing_edges) in enumerate(zip(axs.flatten(),pods,missing_edgess)):
+    for i,(this_pod,missing_edges) in enumerate(zip(pods,missing_edgess)):
 
  
         nodes = list(this_pod.nodes)
@@ -240,19 +233,53 @@ def draw_network(
             ##  force_directed (spring) indirectly minimizes edge crossings 
             ##  (it's an NP hard problem apparently this is the best one can do).
 
-        # AMG not sure why we are returning a value when i ==6??
-        if i == 6: return_value = this_pod,pos_dict
-
         #try: pos_dict = nx.planar_layout(this_pod,scale=0.1)
         #except: pos_dict = iterate_force_directed(this_pod,pos_dict)
         pos_dict = detangle_edges(this_pod,pos_dict)#iterate_random(this_pod,pos_dict,force_directed=False)
+        pos_dicts += [pos_dict]
+
+    return pods,pos_dicts
+
+def draw_network(
+    this_network,
+    pods = None,
+    pos_dicts = None,
+    scale_fact:float=1,
+    debug_crossing_edges:bool=False,
+    single_axis=True,
+    **kwargs):
+
+    ## partition into "pods," constructed in 2 steps:
+    ##  step 1: separate into 'communities' maximizing 'modularity'
+    if pods is None or pos_dicts is None: pods,pos_dicts = get_positions(this_network,**kwargs)
+
+    if not single_axis:
+        ## initialize matplotlib axes
+        fig,axs = plt.subplots(nrows=len(pods)//4+(len(pods)%4>0),ncols=4)
+        axs = np.array(axs)
+        offsets = np.zeros((len(pods),2))
+    else:
+        fig,axs = plt.subplots(1,1)
+        axs = np.array([axs]*len(pods)).flatten()
+        offsets = np.zeros((len(pods),2))
+        thetas = np.linspace(0,2*np.pi,len(pods),endpoint=False)
+        offsets[:,0] = np.cos(thetas)*scale_fact*3
+        offsets[:,1] = np.sin(thetas)*scale_fact*3
+
+    ## draw each 'pod' in its own separate axis
+    for i,(ax,this_pod,pos_dict,offset) in enumerate(zip(axs.flatten(),pods,pos_dicts,offsets)):
+        nodes = list(this_pod.nodes)
+        edges = list(this_pod.edges.keys())
+        anti_nodes = [node for node in this_pod.nodes if node not in nodes]
+        copy_dict = {**pos_dict}
+        for key,value in copy_dict.items(): copy_dict[key] = value+offset
 
         ## draw each component of the graph separately
         ##  nodes
         for shape,llist in zip(['o','*'],[nodes,anti_nodes]):
             nx.draw_networkx_nodes(
                 this_pod,
-                pos_dict,
+                copy_dict,
                 ax=ax,
                 node_shape=shape,
                 node_color=[color_map[node.role] for node in llist],
@@ -261,15 +288,16 @@ def draw_network(
         ##  labels
         nx.draw_networkx_labels(
             this_pod,
-            pos_dict,
+            copy_dict,
             labels=dict([(node,f"{node.initials}") for node in this_pod.nodes]),
             ax=ax)
 
+        missing_edges = []
         ##  edges, arrows point from mentor -> mentee
         for style,llist in zip(['-','--'],[edges,missing_edges]):
             try: nx.draw_networkx_edges(
                 this_pod,
-                pos_dict,
+                copy_dict,
                 ax=ax,
                 edge_color=get_edge_colors(llist),
                 style=style,
@@ -278,11 +306,11 @@ def draw_network(
             except: pass
 
         if debug_crossing_edges:
-            crossing_edges = find_planar_crossing_edges(this_pod,pos_dict)
+            crossing_edges = find_planar_crossing_edges(this_pod,copy_dict)
             if len(crossing_edges):
                 nx.draw_networkx_edges(
                     this_pod,
-                    pos_dict,
+                    copy_dict,
                     ax=ax,
                     edge_color='red',
                     style='-',
@@ -293,7 +321,7 @@ def draw_network(
         dx = np.diff(ax.get_xlim())[0]
         dy = np.diff(ax.get_ylim())[0]
         dr = np.sqrt(dx**2+dy**2)
-        draw_remaining_spots(ax,nodes,pos_dict,dr=dr/30)
+        draw_remaining_spots(ax,nodes,copy_dict,dr=dr/30)
 
         ax.axis('off')
         #ax.set_aspect(1)
@@ -308,7 +336,12 @@ def draw_network(
     ## format the figure to minimize whitespace
     fig.subplots_adjust(wspace=0,hspace=0,left=0,right=1,bottom=0,top=1)
         
-    fig.set_facecolor('white')
-    fig.set_size_inches(2*len(pods)*scale_fact,6*scale_fact)
-    fig.set_dpi(120)
-    return return_value
+    if not single_axis:
+        fig.set_facecolor('white')
+        fig.set_size_inches(2*len(pods)*scale_fact,6*scale_fact)
+        fig.set_dpi(120)
+    else:
+        fig.set_facecolor('white')
+        fig.set_size_inches(2*len(pods)*scale_fact,2*len(pods)*scale_fact)
+        fig.set_dpi(120)
+    return pods,pos_dicts
