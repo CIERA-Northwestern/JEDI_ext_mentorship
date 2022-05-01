@@ -344,4 +344,117 @@ def draw_network(
         fig.set_facecolor('white')
         fig.set_size_inches(2*len(pods)*scale_fact,2*len(pods)*scale_fact)
         fig.set_dpi(120)
+    
+    add_legend_to_ax(axs[-1],debug=show_remaining_spots,between=between)
+
     return pods,pos_dicts
+
+def add_legend_to_ax(ax,debug=True,between=False):
+
+    if debug:
+        add_to_legend(ax,'willing to mentor',c='k',lw=0,labelcolor='red')
+        add_to_legend(ax,'requesting mentor',c='k',lw=0,labelcolor='blue')
+    for role,rank in role_ranks.items():
+        add_to_legend(
+            ax,
+            role,
+            c=color_map[role],
+            line_kwargs={'marker':'.','markersize':25},
+            lw=0) 
+
+    if not between:
+        add_to_legend(
+            ax,
+            'appears elsewhere',
+            c='k',
+            line_kwargs={'marker':'*','markersize':15},
+            lw=0)
+
+    for label,edge_color in zip(
+        ['both prefer','mentee prefers','mentor prefers'],
+        ['gold','lightgreen','darkgreen']):
+        add_to_legend(
+            ax,
+            label,
+            c=edge_color,
+            labelspacing=1.2,
+            frameon=False,
+            labelcolor=debug*['red','blue']+['k']*8,
+            loc='center' if not between else 'upper left')
+
+def add_to_legend(
+    ax,
+    label='',
+    shape='line',
+    loc=0,
+    ls='-',
+    c=None,
+    alpha=1,
+    lw=None,
+    legend_kwargs=None,
+    make_new_legend=False,
+    line_kwargs=None,
+    **kwargs):
+
+    from matplotlib.lines import Line2D
+
+
+    legend = ax.get_legend()
+    ## add the current legend to the tracked artists
+    ##  and then pretend we weren't passed one
+    prev_loc = None
+    if make_new_legend and legend is not None:
+        prev_loc = legend._loc
+        ax.add_artist(legend)
+        legend=None
+
+    if legend is not None:
+        lines = legend.get_lines()
+        labels = [text.get_text() for text in legend.get_texts()]
+    else:
+        lines,labels=[],[]
+
+    if legend_kwargs is None:
+        legend_kwargs = {}
+
+    ## make the new line
+    if shape == 'line':
+        ## this is wild, but have to handle when plotting
+        ##  markers, apparently when you read the line from 
+        ##  the legend it loses memory of the marker
+        if 'ls' in kwargs and kwargs['ls'] == '':
+            ax.markers = []
+        if line_kwargs is None: line_kwargs = {}
+
+        if lw is not None: line_kwargs['lw'] = lw
+        else: line_kwargs['lw'] = 2
+
+        line = Line2D(
+        [0],[0],
+        ls=ls,
+        c=c,
+        alpha=alpha,
+        **line_kwargs
+        )
+    else:
+        raise NotImplementedError
+
+    if label not in labels:
+        lines.append(line)
+        labels.append(label)
+
+    if loc in legend_kwargs:
+        loc = legend_kwargs.pop('loc')
+
+    for line in lines:
+        if line.get_linestyle() == 'None':
+            print(line.get_marker(),'marker')
+
+    if prev_loc is not None and loc == prev_loc:
+        loc+=1
+
+    ## for backwards compatibility...
+    legend_kwargs.update(kwargs)
+    ax.legend(lines,labels,loc=loc,**legend_kwargs)
+
+    return ax
