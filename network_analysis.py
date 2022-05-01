@@ -177,7 +177,7 @@ def determine_if_cross(edge1,edge2,pos_dict):
     ## choose this combination of points to make a vector of point slope form
     vec = np.array([-m1*p1a.x+p1a.y,-m2*p2a.x+p2a.y]).reshape(2,1)
     mat = np.array([[-m1,1],[-m2,1]])
-    xcross,ycross = np.matmul(np.linalg.inv(mat),vec)[:,0]
+    xcross,ycross = np.matmul(np.linalg.pinv(mat),vec)[:,0]
     return ( Point(xcross,ycross).contained_in_domain(p1a,p1b) and
         Point(xcross,ycross).contained_in_domain(p2a,p2b) and
         Point(xcross,ycross).contained_in_range(p1a,p1b) and
