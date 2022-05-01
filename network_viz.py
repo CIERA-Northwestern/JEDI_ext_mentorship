@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import networkx as nx
 
-from mentor_matching import Person,GLOBAL_max_mentees
+from mentor_matching import Person,GLOBAL_max_mentees,role_ranks
 from network_analysis import detangle_edges, get_pods,find_planar_crossing_edges,find_overlapping_nodes
 
 hexcols = ['#332288', '#88CCEE', '#44AA99', '#117733', '#999933', '#DDCC77', 
@@ -171,10 +171,14 @@ def draw_remaining_spots(ax,nodes,pos_dict,dr=0.2):
                 remaining_spots+=char*int(n)
                 flags = np.append(flags,np.repeat(0,n))
         else: pass 
-        for char,n in zip('ugpf',mentees_remaining):
-            if n <= 0: continue
-            remaining_spots+=char*int(n)
-            flags = np.append(flags,np.repeat(1,n))
+        if node.mentees_remaining > 0:
+            for char,n in zip('ugpf',mentees_remaining):
+                if n <= 0: continue
+                ## take the min s.t. if someone has 2 spots left
+                ##  but put "any" for a role you don't put 6 letters
+                ##  surrounding it (should only put 2)
+                remaining_spots+=char*min(int(n),int(node.mentees_remaining))
+                flags = np.append(flags,np.repeat(1,n))
 
         thetas = np.linspace(0,2*np.pi,len(remaining_spots),endpoint=False)+np.pi/2
 
@@ -186,7 +190,7 @@ def draw_remaining_spots(ax,nodes,pos_dict,dr=0.2):
                 this_char,
                 verticalalignment='center',
                 horizontalalignment='center',
-                c='magenta' if not flag else 'red',
+                c='blue' if not flag else 'red',
                 fontsize=12)
 
 
@@ -195,7 +199,7 @@ def get_positions(
     this_network,
     simple_pos:bool=True,
     seed:int=300,
-    add_missing_edges:bool=False):
+    add_missing_edges:bool=True):
 
     ## partition into "pods," constructed in 2 steps:
     ##  step 1: separate into 'communities' maximizing 'modularity'
@@ -204,13 +208,11 @@ def get_positions(
     pods,missing_edgess = get_pods(this_network)
 
     pos_dicts = []
+    anti_nodess = []
 
     ## draw each 'pod' in its own separate axis
     for i,(this_pod,missing_edges) in enumerate(zip(pods,missing_edgess)):
-
- 
         nodes = list(this_pod.nodes)
-        edges = list(this_pod.edges.keys())
         if add_missing_edges: this_pod.add_edges_from(missing_edges)
         anti_nodes = [node for node in this_pod.nodes if node not in nodes]
 
@@ -237,21 +239,31 @@ def get_positions(
         #except: pos_dict = iterate_force_directed(this_pod,pos_dict)
         pos_dict = detangle_edges(this_pod,pos_dict)#iterate_random(this_pod,pos_dict,force_directed=False)
         pos_dicts += [pos_dict]
+        if add_missing_edges: this_pod.remove_edges_from(missing_edges)
+        anti_nodess+=[anti_nodes]
 
-    return pods,pos_dicts
+    return pods,pos_dicts,missing_edgess,anti_nodess
 
 def draw_network(
     this_network,
-    pods = None,
-    pos_dicts = None,
+    pods=None,
+    pos_dicts=None,
+    missing_edgess=None,
+    anti_nodess=None,
     scale_fact:float=1,
     debug_crossing_edges:bool=False,
     single_axis=True,
+    show_remaining_spots=False,
+    between=True,
     **kwargs):
 
     ## partition into "pods," constructed in 2 steps:
     ##  step 1: separate into 'communities' maximizing 'modularity'
-    if pods is None or pos_dicts is None: pods,pos_dicts = get_positions(this_network,**kwargs)
+    if (pods is None or 
+        pos_dicts is None or
+        missing_edgess is None or
+        anti_nodess is None):
+        pods,pos_dicts,missing_edgess,anti_nodess = get_positions(this_network,**kwargs)
 
     if not single_axis:
         ## initialize matplotlib axes
@@ -263,54 +275,65 @@ def draw_network(
         axs = np.array([axs]*len(pods)).flatten()
         offsets = np.zeros((len(pods),2))
         thetas = np.linspace(0,2*np.pi,len(pods),endpoint=False)
-        offsets[:,0] = np.cos(thetas)*scale_fact*3
-        offsets[:,1] = np.sin(thetas)*scale_fact*3
+        offsets[:,0] = np.cos(thetas)*3*scale_fact
+        offsets[:,1] = np.sin(thetas)*3*scale_fact
 
+    if between:
+        all_dict = {}
+        for pos_dict,offset in zip(pos_dicts,offsets):
+            for key,value in pos_dict.items(): all_dict[key] = value+offset
+    
+    dx = None
     ## draw each 'pod' in its own separate axis
-    for i,(ax,this_pod,pos_dict,offset) in enumerate(zip(axs.flatten(),pods,pos_dicts,offsets)):
+    for i,(ax,this_pod,pos_dict,missing_edges,anti_nodes,offset) in enumerate(
+        zip(axs.flatten(),pods,pos_dicts,missing_edgess,anti_nodess,offsets)):
         nodes = list(this_pod.nodes)
         edges = list(this_pod.edges.keys())
-        anti_nodes = [node for node in this_pod.nodes if node not in nodes]
-        copy_dict = {**pos_dict}
-        for key,value in copy_dict.items(): copy_dict[key] = value+offset
+
+        nodes = set(nodes)-set(anti_nodes)
+
+        if not between:
+            all_dict = {**pos_dict}
+            for key,value in pos_dict.items(): all_dict[key] = value+offset
 
         ## draw each component of the graph separately
         ##  nodes
         for shape,llist in zip(['o','*'],[nodes,anti_nodes]):
             nx.draw_networkx_nodes(
                 this_pod,
-                copy_dict,
+                all_dict,
                 ax=ax,
                 node_shape=shape,
                 node_color=[color_map[node.role] for node in llist],
                 nodelist=llist)
 
         ##  labels
-        nx.draw_networkx_labels(
-            this_pod,
-            copy_dict,
-            labels=dict([(node,f"{node.initials}") for node in this_pod.nodes]),
-            ax=ax)
+        if show_remaining_spots:
+            nx.draw_networkx_labels(
+                this_pod,
+                all_dict,
+                labels=dict([(node,f"{node.initials}") for node in this_pod.nodes]),
+                ax=ax)
 
-        missing_edges = []
         ##  edges, arrows point from mentor -> mentee
         for style,llist in zip(['-','--'],[edges,missing_edges]):
-            try: nx.draw_networkx_edges(
-                this_pod,
-                copy_dict,
-                ax=ax,
-                edge_color=get_edge_colors(llist),
-                style=style,
-                width=2,
-                edgelist=llist)
-            except: pass
+            try: 
+                nx.draw_networkx_edges(
+                    this_pod,
+                    all_dict,
+                    ax=ax,
+                    edge_color=get_edge_colors(llist),
+                    style=style,
+                    width=2,
+                    edgelist=llist)
+            except: raise 
 
         if debug_crossing_edges:
-            crossing_edges = find_planar_crossing_edges(this_pod,copy_dict)
+            crossing_edges = find_planar_crossing_edges(this_pod,all_dict)
             if len(crossing_edges):
                 nx.draw_networkx_edges(
                     this_pod,
-                    copy_dict,
+                    all_dict,
                     ax=ax,
                     edge_color='red',
                     style='-',
@@ -318,20 +341,16 @@ def draw_network(
                     edgelist=crossing_edges)
 
         ## annotate any remaining mentor (o) or mentee (x) spots
-        dx = np.diff(ax.get_xlim())[0]
-        dy = np.diff(ax.get_ylim())[0]
-        dr = np.sqrt(dx**2+dy**2)
-        draw_remaining_spots(ax,nodes,copy_dict,dr=dr/30)
+        if dx is None:
+            dx = np.diff(ax.get_xlim())[0]
+            dy = np.diff(ax.get_ylim())[0]
+            dr = np.sqrt(dx**2+dy**2)
 
-        ax.axis('off')
-        #ax.set_aspect(1)
-        #ax.set_xlim(left=-0.5)
+        if show_remaining_spots: draw_remaining_spots(ax,nodes,all_dict,dr=dr/30)
+
+        ax.set_aspect(1)
     
-    for ax in axs.flatten(): 
-        ax.axis('off')
-        if ax.is_last_col() and ax.is_last_row():
-            ax.text(0.5,1,'willing to mentor',c='red',transform=ax.transAxes,ha='center',va='center',fontsize=12)
-            ax.text(0.5,.95,'requesting mentor',c='magenta',transform=ax.transAxes,ha='center',va='center',fontsize=12)
+    for ax in axs.flatten(): ax.axis('off')
                     
     ## format the figure to minimize whitespace
     fig.subplots_adjust(wspace=0,hspace=0,left=0,right=1,bottom=0,top=1)
