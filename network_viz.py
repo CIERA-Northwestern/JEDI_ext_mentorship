@@ -160,25 +160,30 @@ def draw_remaining_spots(ax,nodes,pos_dict,dr=0.2):
         node:Person = node ## for typehinting
         x,y = pos_dict[node]
 
-        remaining_spots = ''
+        remaining_spots = []
         flags = []
         mentors_remaining = node.n_role_mentors-node.has_n_role_mentors 
         mentees_remaining = node.n_role_mentees-node.has_n_role_mentees 
         ## didn't offer to take more than the global maximum
         if np.sum(mentors_remaining) == node.mentors_remaining:
             for char,n in zip('ugpf',mentors_remaining):
+                n = int(n)
                 if n <= 0: continue
-                remaining_spots+=char*int(n)
+                remaining_spots+=[char]*int(n)
                 flags = np.append(flags,np.repeat(0,n))
         else: pass 
-        if node.mentees_remaining > 0:
-            for char,n in zip('ugpf',mentees_remaining):
-                if n <= 0: continue
-                ## take the min s.t. if someone has 2 spots left
-                ##  but put "any" for a role you don't put 6 letters
-                ##  surrounding it (should only put 2)
-                remaining_spots+=char*min(int(n),int(node.mentees_remaining))
-                flags = np.append(flags,np.repeat(1,n))
+        for char,n in zip('ugpf',mentees_remaining):
+            if n <= 0: continue
+            n = int(n)
+            ## take the min s.t. if someone has 2 spots left
+            ##  but put "any" for a role you don't put 6 letters
+            ##  surrounding it (should only put 2)
+            if node.mentees_remaining == 0:
+                char = f'{char}$^*$'
+                n = 1
+            else: n = min(n,node.mentees_remaining)
+            remaining_spots+=[char]*n
+            flags = np.append(flags,np.repeat(1,n))
 
         thetas = np.linspace(0,2*np.pi,len(remaining_spots),endpoint=False)+np.pi/2
 
