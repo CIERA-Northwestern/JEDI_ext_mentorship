@@ -202,7 +202,7 @@ def draw_remaining_spots(ax,nodes,pos_dict,dr=0.2):
 
 def get_positions(
     this_network,
-    simple_pos:bool=True,
+    simple_pos:bool=False,
     seed:int=300,
     add_missing_edges:bool=True):
 
@@ -257,7 +257,7 @@ def draw_network(
     anti_nodess=None,
     scale_fact:float=1,
     debug_crossing_edges:bool=False,
-    single_axis=True,
+    single_axis=False,
     show_remaining_spots=False,
     between=True,
     **kwargs):
@@ -268,7 +268,9 @@ def draw_network(
         pos_dicts is None or
         missing_edgess is None or
         anti_nodess is None):
-        pods,pos_dicts,missing_edgess,anti_nodess = get_positions(this_network,**kwargs)
+        pods,pos_dicts,missing_edgess,anti_nodess = get_positions(
+            this_network,
+            **kwargs)
 
     if not single_axis:
         ## initialize matplotlib axes
@@ -369,7 +371,7 @@ def draw_network(
         fig.set_size_inches(2*len(pods)*scale_fact,2*len(pods)*scale_fact)
         fig.set_dpi(120)
     
-    add_legend_to_ax(axs[-1],debug=show_remaining_spots,between=between)
+    add_legend_to_ax(axs.flatten()[-1],debug=show_remaining_spots,between=between)
 
     return pods,pos_dicts
 
