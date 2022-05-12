@@ -496,4 +496,6 @@ def list_matches(this_network,show_remaining_spots=False,**kwargs):
         for edge in edges:
             edgelist.append('mentor '+str(edge[0])+' is matched to mentee '+str(edge[1]))
     
+    ## note: a good alternative is using nx.generate_edgelist(this_network, data=False)
+    
     return edgelist
