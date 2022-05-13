@@ -196,7 +196,7 @@ def run_all_metrics(people,network):
 
     return metric_values,[metric.__name__.split('run_')[1] for metric in metrics]
 
-def run_weighted_metrics(people_list, network_list, metrics, combine_metric_method='multiply'):
+def run_weighted_metrics(people_list, network_list, metrics, combine_metric_method='multiply', minvalue = 0.01):
     '''
     metrics is a list of dict's with each dict containing the following keys.
         function : the name of the metric function (e.g., run_frac_mentees_with_a_mentor)
@@ -251,9 +251,12 @@ def run_weighted_metrics(people_list, network_list, metrics, combine_metric_meth
 
         if ('type' in m):
             if (m['type'] == 'maximize'):
+                weighted_metric_values[i,:] = np.where(weighted_metric_values[i,:] > 0, weighted_metric_values[i,:], minvalue)
                 weighted_metric_values[i,:] = m['weight']*weighted_metric_values[i,:]
             elif (m['type'] == 'minimize'):
-                weighted_metric_values[i,:] = m['weight']*(1. - weighted_metric_values[i,:])
+                weighted_metric_values[i,:] = (1. - weighted_metric_values[i,:])
+                weighted_metric_values[i,:] = np.where(weighted_metric_values[i,:] > 0, weighted_metric_values[i,:], minvalue)
+                weighted_metric_values[i,:] = m['weight']*weighted_metric_values[i,:]
             elif (m['type'] == 'binary'):
                 weighted_metric_values[i,:] = weighted_metric_values[i,:] > 0
                 weighted_metric_values[i,:] = m['weight']*weighted_metric_values[i,:].astype(int)

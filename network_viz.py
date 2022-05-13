@@ -251,15 +251,17 @@ def get_positions(
 
 def draw_network(
     this_network,
+    simple_pos = False,
+    add_missing_edges = True,
     pods=None,
     pos_dicts=None,
     missing_edgess=None,
     anti_nodess=None,
     scale_fact:float=1,
     debug_crossing_edges:bool=False,
-    single_axis=False,
+    single_axis=True,
     show_remaining_spots=False,
-    between=True,
+    between=False,
     **kwargs):
 
     ## partition into "pods," constructed in 2 steps:
@@ -484,3 +486,16 @@ def add_to_legend(
     ax.legend(lines,labels,loc=loc,**legend_kwargs)
 
     return ax
+
+def list_matches(this_network,show_remaining_spots=False,**kwargs):
+    
+    pods,pos_dicts,missing_edgess,anti_nodess = get_positions(this_network)
+    edgelist = []
+    for pod in pods:
+        edges = list(pod.edges())
+        for edge in edges:
+            edgelist.append('mentor '+str(edge[0])+' is matched to mentee '+str(edge[1]))
+    
+    ## note: a good alternative is using nx.generate_edgelist(this_network, data=False)
+    
+    return edgelist
