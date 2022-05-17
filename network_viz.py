@@ -164,38 +164,55 @@ def draw_remaining_spots(ax,nodes,pos_dict,dr=0.2):
         flags = []
         mentors_remaining = node.n_role_mentors-node.has_n_role_mentors 
         mentees_remaining = node.n_role_mentees-node.has_n_role_mentees 
+
         ## didn't offer to take more than the global maximum
         if np.sum(mentors_remaining) == node.mentors_remaining:
             for char,n in zip('ugpf',mentors_remaining):
                 n = int(n)
-                if n <= 0: continue
-                remaining_spots+=[char]*int(n)
-                flags = np.append(flags,np.repeat(0,n))
-        else: pass 
+                if n == 0: continue
+                elif n < 0: 
+                    n = np.abs(n)
+                    this_flag = 2
+                else: this_flag = 0
+                if n > 1: char = char + "$^{%d}$"%n
+                remaining_spots+=[char]
+                flags = np.append(flags,np.repeat(this_flag,n))
         for char,n in zip('ugpf',mentees_remaining):
             if n <= 0: continue
-            n = int(n)
             ## take the min s.t. if someone has 2 spots left
             ##  but put "any" for a role you don't put 6 letters
             ##  surrounding it (should only put 2)
-            if node.mentees_remaining == 0:
-                char = f'{char}$^*$'
-                n = 1
-            else: n = min(n,node.mentees_remaining)
-            remaining_spots+=[char]*n
-            flags = np.append(flags,np.repeat(1,n))
+            n = min(n,node.mentees_remaining)
+
+            if n > 1: char = char + "$^{%d}$"%n
+
+            remaining_spots+=[char]
+            flags = np.append(flags,1)
+
+        remaining_spots += [f'{node.mentees_remaining:.0f}']
+        flags = np.append(flags,1)
+
+        remaining_spots += [f'{node.mentors_remaining:.0f}']
+        flags = np.append(flags,0)
 
         thetas = np.linspace(0,2*np.pi,len(remaining_spots),endpoint=False)+np.pi/2
 
         dxs = np.cos(thetas)*dr
         dys = np.sin(thetas)*dr
 
+        colors = ['b','r','mediumorchid']
         for dx,dy,this_char,flag in zip(dxs,dys,remaining_spots,flags):
+            ax.text(x+dx-dx/25,y+dy-dy/25,
+                this_char,
+                verticalalignment='center',
+                horizontalalignment='center',
+                c='k',
+                fontsize=12)
             ax.text(x+dx,y+dy,
                 this_char,
                 verticalalignment='center',
                 horizontalalignment='center',
-                c='blue' if not flag else 'red',
+                c=colors[int(flag)],
                 fontsize=12)
 
 
@@ -355,7 +372,7 @@ def draw_network(
             dy = np.diff(ax.get_ylim())[0]
             dr = np.sqrt(dx**2+dy**2)
 
-        if show_remaining_spots: draw_remaining_spots(ax,nodes,all_dict,dr=dr/30)
+        if show_remaining_spots: draw_remaining_spots(ax,nodes,all_dict,dr=dr/22)
 
         ax.set_aspect(1)
     
@@ -382,6 +399,7 @@ def add_legend_to_ax(ax,debug=True,between=False):
     if debug:
         add_to_legend(ax,'willing to mentor',c='k',lw=0,labelcolor='red')
         add_to_legend(ax,'requesting mentor',c='k',lw=0,labelcolor='blue')
+        add_to_legend(ax,'assigned alt. mentor',c='k',lw=0,labelcolor='mediumorchid')
     for role,rank in role_ranks.items():
         add_to_legend(
             ax,
@@ -407,7 +425,7 @@ def add_legend_to_ax(ax,debug=True,between=False):
             c=edge_color,
             labelspacing=1.2,
             frameon=False,
-            labelcolor=debug*['red','blue']+['k']*8,
+            labelcolor=debug*['red','blue','mediumorchid']+['k']*8,
             loc='center' if not between else 'upper left')
 
 def add_to_legend(
