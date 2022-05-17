@@ -36,21 +36,6 @@ def run_frac_mentees_less_than_requested(people,network):
     return num/denom
 
 
-def run_frac_mentees_without_mentor(people,network):
-    """ Count the fraction of people who requested mentors
-        but did not receive any mentors """
-    num = 0
-    denom = 0
-    for person in people.values():
-        ## if this person requested any mentors at all
-        if (person.n_mentors_total):
-            denom+=1
-            ## if they didn't get any mentors
-            if (len(person.mentor_matches) == 0):
-                num+=1
-    ## return the fraction
-    return num/denom
-
 
 def run_frac_mentors_assigned_mentees(people,network):
     """ Count the fraction of mentors who volunteered
@@ -222,6 +207,7 @@ def run_weighted_metrics(people_list, network_list, metrics, combine_metric_meth
             maximize : higher numbers get preference
             minimize : lower numbers get prefererence
             binary : non-zero numbers are converted to 1 (and given preference)
+            binary1 : ones are kept; all other numberrws are converted to zero 
             binary0: zeros are converted to 1 (and given preference); all other numbers are converted to zero
         normalize : boolean, if True then the metric values are normalized to [0,1].  This step is performed before weighting
         minvalue : float value that sets the minimum value for that metric (optional, = 0.01 by default as defined in the function args).
@@ -281,10 +267,12 @@ def run_weighted_metrics(people_list, network_list, metrics, combine_metric_meth
             elif (m['type'] == 'binary'):
                 weighted_metric_values[i,:] = weighted_metric_values[i,:] > 0
                 weighted_metric_values[i,:] = m['weight']*weighted_metric_values[i,:].astype(int)
+            elif (m['type'] == 'binary1'):
+                weighted_metric_values[i,:] = weighted_metric_values[i,:] == 1
+                weighted_metric_values[i,:] = m['weight']*weighted_metric_values[i,:].astype(int)
             elif (m['type'] == 'binary0'):
                 weighted_metric_values[i,:] = weighted_metric_values[i,:] == 0
                 weighted_metric_values[i,:] = m['weight']*weighted_metric_values[i,:].astype(int)
-
 
     # calculate the combined metric for each run
     for j in range(nruns):
