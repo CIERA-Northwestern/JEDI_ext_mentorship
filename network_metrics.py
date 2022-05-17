@@ -35,6 +35,23 @@ def run_frac_mentees_less_than_requested(people,network):
     ## return the fraction
     return num/denom
 
+
+def run_frac_mentees_without_mentor(people,network):
+    """ Count the fraction of people who requested mentors
+        but did not receive any mentors """
+    num = 0
+    denom = 0
+    for person in people.values():
+        ## if this person requested any mentors at all
+        if (person.n_mentors_total):
+            denom+=1
+            ## if they didn't get any mentors
+            if (len(person.mentor_matches) == 0):
+                num+=1
+    ## return the fraction
+    return num/denom
+
+
 def run_frac_mentors_assigned_mentees(people,network):
     """ Count the fraction of mentors who volunteered
         but did not receive any mentees """
