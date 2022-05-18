@@ -324,7 +324,8 @@ def create_best_network(
 
     network_list = []
     people_list = []
-    for i in range(nruns):
+    i=0
+    while len(network_list) < nruns and i < 2*nruns:
         people, network = mentor_matching.generate_network(names_df,mentees_df,mentors_df,loud)
         flag = True
         for constraint in constraints: flag = flag and constraint(people,network)
@@ -334,6 +335,7 @@ def create_best_network(
             network_list.append(network)
             people_list.append(people)
         else: print("A network violated a constraint and was discarded.")
+        i+=1
 
     output = run_weighted_metrics(people_list, network_list, metrics, combine_metric_method)
 
