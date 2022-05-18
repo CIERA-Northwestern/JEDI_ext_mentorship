@@ -2,7 +2,7 @@ import itertools
 import networkx as nx
 import numpy as np
 
-from mentor_matching import generate_network
+import mentor_matching
 from network_analysis import get_pods
 
 def run_frac_mentees_with_a_mentor(people,network):
@@ -296,9 +296,22 @@ def run_weighted_metrics(people_list, network_list, metrics, combine_metric_meth
             'metric_names':np.array(metric_names)
             }
 
-def create_best_network(nruns, names_df, mentees_df, mentors_df, metrics, nbest = 1, combine_metric_method='multiply', loud=False):
+def create_best_network(
+    nruns,
+    names_df,
+    mentees_df,
+    mentors_df,
+    metrics,
+    nbest = 1,
+    combine_metric_method='multiply',
+    loud=False,
+    seed=None):
     # wrapper to run all the code needed to create a network
+
     
+    ## set the random seed. if None will use default seed in set_seed
+    mentor_matching.set_seed(seed)
+
     network_list = []
     people_list = []
     for i in range(nruns):

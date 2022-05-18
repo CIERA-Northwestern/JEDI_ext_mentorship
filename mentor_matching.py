@@ -4,7 +4,10 @@ import random
 import networkx as nx
 
 GLOBAL_max_mentees = 6
-random.seed (a='beta')
+
+def set_seed(seed=None): 
+    if seed is None: seed = 'beta'
+    random.seed(a=seed)
 
 ## define some "constant" dictionaries that help us reformat the data
 role_transformer = {
