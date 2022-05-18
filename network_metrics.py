@@ -1,11 +1,11 @@
-import itertools
 import networkx as nx
 import numpy as np
 
 import mentor_matching
 from network_analysis import get_pods
 
-def run_frac_mentees_with_a_mentor(people,network):
+### constraints that must be satisfied otherwise a network is discarded
+def check_any_mentee_has_no_mentor(people,network):
     """ Count the fraction of people who requested mentors
         but did not receive any mentor"""
     num = 0
@@ -17,9 +17,52 @@ def run_frac_mentees_with_a_mentor(people,network):
             ## if they got any mentor at all
             if (len(person.mentor_matches)):
                 num+=1
-    ## return the fraction
-    return num/denom
 
+    ## return the fraction
+    return num == denom
+
+def check_any_matched_avoid(people,network):
+    """ Count the fraction of mentors and mentees who
+        got matched with people they wanted to avoid
+        THIS SHOULD ALWAYS BE 0"""
+    num = 0
+    for person in people.values():
+        broke = False
+        for mentee in person.mentee_matches:
+            if mentee.name in person.mentees_avoid:
+                num+=1
+                broke=True
+                break
+        ## skip checking below if we already had a hit above
+        if broke: continue
+        for mentor in person.mentor_matches:
+            if mentor.name in person.mentors_avoid:
+                num+=1
+                break
+
+    return num == 0
+
+def check_any_mentors_overassigned(people,network):
+    """ Count the fraction of mentors who received
+    more mentees than they offered"""
+    num = 0
+    denom = 0
+    for person in people.values():
+        ## if this person offered to take any mentees at all
+        if (person.n_mentees_total):
+            denom+=1
+            ## if they got assigned more mentees than they offered
+            if (len(person.mentee_matches) - person.n_mentees_total > 0): ##boolean of a negative number is True so need to add > 0
+                num+=1
+    return num == 0
+
+
+constraints = [
+    check_any_mentee_has_no_mentor,
+    check_any_matched_avoid,
+    check_any_mentors_overassigned]
+
+### Metrics to optimize:
 def run_frac_mentees_less_than_requested(people,network):
     """ Count the fraction of people who requested mentors
         but did not receive as many mentors as requested """
@@ -65,21 +108,6 @@ def run_frac_mentors_with_extra_slots(people,network):
     ## return the fraction
     return num/denom
     
-def run_frac_mentors_overassigned(people,network):
-    """ Count the fraction of mentors who received
-    more mentees than they offered"""
-    num = 0
-    denom = 0
-    for person in people.values():
-        ## if this person offered to take any mentees at all
-        if (person.n_mentees_total):
-            denom+=1
-            ## if they got assigned more mentees than they offered
-            if (len(person.mentee_matches) - person.n_mentees_total > 0): ##boolean of a negative number is True so need to add > 0
-                num+=1
-    ## return the fraction
-    return num/denom
-
 def run_frac_mentees_atleast_one_preference(people,network):
     """ Count the fraction of mentees who received
         at least one mentor they preferred"""
@@ -96,26 +124,6 @@ def run_frac_mentees_atleast_one_preference(people,network):
                     break
     ## return the fraction
     return num/denom
-
-def run_frac_any_avoid(people,network):
-    """ Count the fraction of mentors and mentees who
-        got matched with people they wanted to avoid
-        THIS SHOULD ALWAYS BE 0"""
-    num = 0
-    for person in people.values():
-        broke = False
-        for mentee in person.mentee_matches:
-            if mentee.name in person.mentees_avoid:
-                num+=1
-                broke=True
-                break
-        ## skip checking below if we already had a hit above
-        if broke: continue
-        for mentor in person.mentor_matches:
-            if mentor.name in person.mentors_avoid:
-                num+=1
-                break
-    return num/len(people)
     
 def run_frac_mentees_alternatives(people,network):
     """ Count the fraction of mentees who
@@ -176,21 +184,18 @@ def run_network_modularity(people, network, resolution = 1):
     # return the modularity
     return nx.algorithms.community.modularity(network, pods, resolution = resolution)
 
+metrics = [
+    run_frac_mentees_less_than_requested,
+    run_frac_mentors_assigned_mentees,
+    run_frac_mentors_with_extra_slots,
+    run_frac_mentees_atleast_one_preference,
+    run_mean_clique_size,
+    run_n_cliques_gt2,
+    run_frac_mentees_alternatives,
+    run_network_modularity]
 
+#### functions that call the above:
 def run_all_metrics(people,network):
-
-    metrics = [
-        run_frac_mentees_with_a_mentor,
-        run_frac_mentees_less_than_requested,
-        run_frac_mentors_assigned_mentees,
-        run_frac_mentors_with_extra_slots,
-        run_frac_mentors_overassigned,
-        run_frac_mentees_atleast_one_preference,
-        run_frac_any_avoid,
-        run_mean_clique_size,
-        run_n_cliques_gt2,
-        run_frac_mentees_alternatives,
-        run_network_modularity]
 
     metric_values = [metric(people,network) for metric in metrics]
 
@@ -315,9 +320,15 @@ def create_best_network(
     network_list = []
     people_list = []
     for i in range(nruns):
-        people, network = generate_network(names_df,mentees_df,mentors_df,loud)
-        network_list.append(network)
-        people_list.append(people)
+        people, network = mentor_matching.generate_network(names_df,mentees_df,mentors_df,loud)
+        flag = True
+        for constraint in constraints: flag = flag and constraint(people,network)
+
+        ## network passed muster, add it to the list
+        if flag:
+            network_list.append(network)
+            people_list.append(people)
+        else: print("A network violated a constraint and was discarded.")
 
     output = run_weighted_metrics(people_list, network_list, metrics, combine_metric_method)
 
