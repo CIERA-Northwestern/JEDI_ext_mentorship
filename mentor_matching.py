@@ -3,11 +3,18 @@ from operator import attrgetter
 import random
 import networkx as nx
 
+# for generating emails
+from network_viz import get_positions
+
 GLOBAL_max_mentees = 6
 
 def set_seed(seed=None): 
     if seed is None: seed = 'beta'
     random.seed(a=seed)
+
+## these are the roles that we will consider for the network
+roles = ['Faculty','Postdoc','Graduate Student','Undergraduate Student']
+
 
 ## define some "constant" dictionaries that help us reformat the data
 role_transformer = {
@@ -66,10 +73,12 @@ class Person(object):
         if not only_role: return f"{self.role}: {self.name}"
         else: return f"{self.role[0]}"#+"$_{"+f"({self.has_n_mentees},{self.has_n_mentors}"+")}$"
     
-    def __init__(self,name,role,raise_error=False):
+    def __init__(self,name, role,email=None, raise_error=False):
         self.initials = ''.join([part[0] for part in name.split(' ')])
         self.name = name.replace(' ','')
+        self.fullName = name
         self.role = role
+        self.email = email
         self.raise_error = raise_error
         self.rank = role_ranks[self.role]
         self.years = 0
@@ -375,33 +384,44 @@ class Person(object):
     
 ## let's read in the data to some intelligible format and get rid of all those nans
 ##  this will also let us validate the data and flag any errors
-def reduce_full_tables(names_df,mentees_df,mentors_df):
-    
-    ## let's first separate the names into their respective roles and make a look-up table
-    roles = ['Faculty','Postdoc','Graduate Student','Undergraduate Student']
-    role_dict = {} ## name -> role
-    for role in roles:
-        this_names = names_df[role].dropna().values
-        role_dict.update(zip(this_names,np.repeat(role,len(this_names))))
+def reduce_full_tables(names_df, mentees_df,mentors_df):
+    # read in the names file
 
+    # clean up the accents
+    names_df['Name'] = names_df['Name'].str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8').replace(' ','')
+
+    people = {}
     name_ranks = {}
-    for i,key in enumerate(roles[::-1]):
-        values = names_df[key].dropna().values
-        for name in values:
-            name_ranks[name.replace(' ','')] = i
-    
-    ## then let's initialize the person instances
-    people = dict([(name.replace(' ',''),Person(name,role)) for name,role in role_dict.items()])
-    
+    for index,row in names_df.iterrows():
+        ## save a numerical "rank" based on the rolw for later
+        ## only inlcude members with ranks that match the roles list above
+        name = row['Name'].replace(' ','')
+        try:
+            rank = roles[::-1].index('Faculty')
+            ## initialize the person instances
+            people[name] = Person(row['Name'], row['Role'], row['Email'])
+            name_ranks[name] = rank
+
+        except:
+            pass
+
     
     ## let's loop through the mentees and read their preferences
     keys = mentees_df.keys()
-    for index in mentees_df.index:
-        this_row = mentees_df.loc[index]
-        try: this_person = people[this_row['Name'].replace(' ','')]
-        except KeyError: raise NameError(
-            "{name} does not appear in full participant list.".format(name=this_row['Name'])
-            +" i.e. they are not in CIERA but they filled out the form (or their name is misspelled)")
+    for index,this_row in mentees_df.iterrows():
+        ## check if the name is in our people dict
+        name = this_row['Name'].replace(' ','')
+        in_people = name in people
+        if (not in_people):
+            ## see if they included middle names, and only take first and last
+            foo = this_row['Name'].split()
+            name = foo[0] + foo[-1]
+        try: 
+            this_person = people[name]
+        except KeyError: 
+            raise NameError(
+                "{name} does not appear in full participant list.".format(name=this_row['Name'])
+                +" i.e. they are not in CIERA but they filled out the form (or their name is misspelled)")
 
         ## parse preferences from raw row data
         this_person.parse_row_role_mentee(this_row)
@@ -605,3 +625,52 @@ def add_relationship(network,mentor:Person,mentee:Person,loud:bool=False):
 
     ## add edge to the network
     return network.add_edge(mentor,mentee)
+
+def generate_email_list(network, emailSubject = None, emailText = None):
+    pods,pos_dicts,missing_edgess,anti_nodess = get_positions(network)
+
+    subject = emailSubject
+    if (emailSubject is None):
+        subject = "CIERA Mentorship Network match notification"
+
+    output = []
+    for pod in pods:
+        edges = list(pod.edges())
+        for edge in edges:
+            mentor = edge[0]
+            mentee = edge[1]
+            email = dict()
+            email["to"] = mentor.email + "; " + mentee.email
+            email["subject"] = subject
+            text = emailText
+            if (emailText is None):
+                name1 = mentor.fullName.split()[0]
+                name2 = mentee.fullName.split()[0]
+                text = f"Dear {name1} and {name2}<br/><br/> You have been matched as a mentor ({name1}) - mentee ({name2}) pair in the CIERA Mentorship Network.  Please use this email as a starting point for your new mentorship relationship.<br/><br/>You can find useful information on mentorship on the <a href='https://sites.northwestern.edu/cieraguide/mentorship/'>CIERA Guide here</a><br/><br/>Sincerely,<br/>The Mentorship Action Team<br/>(A-Z by first name) Aaron Geller, Adam Miller, Alex Gurvich, Nick Kaaz, Sam Imperatu, Tjitske Starkenburg, Zoheyr Doctor"
+            email["text"] = text
+
+            output.append(email)
+
+    return output
+
+
+def generate_automatic_outlook_emails(emails, N=np.inf):
+
+    import win32com.client as win32
+    outlook = win32.Dispatch('outlook.application')
+
+    def generate_email(email, send=False):
+        mail = outlook.CreateItem(0)
+        mail.To = email['to']
+        mail.Subject = email['subject']
+        mail.HTMLBody  = email['text']
+        if (send):
+            ## this will automatically send the email... seems a bit dangerous, so not hooked in 
+            mail.send
+        else:
+            mail.Display(False) #set to false so that it doesn't stop the script
+
+    for i,email in enumerate(emails):
+        generate_email(email)
+        if (i >= N-1):
+            break
