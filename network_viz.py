@@ -135,7 +135,7 @@ def add_random(graph,pos_dict,seed,fixed,magnitude=10):
         new_pos_dict[node] = [x,y]
     return new_pos_dict
 
-def get_edge_colors(edges):
+def get_edge_colors(edges,debug=False):
     colors = []
     ## loop over every edge and assign it a color
     ##  based on how "preferred" the relationship is,
@@ -144,10 +144,11 @@ def get_edge_colors(edges):
         mentor:Person = mentor ## for typehinting
         mentee:Person = mentee ## for typehinting
 
-        if (mentor.name in mentee.mentors_prefr and 
+        if (debug and 
+            mentor.name in mentee.mentors_prefr and 
             mentee.name in mentor.mentees_prefr): color = 'gold'
-        elif mentor.name in mentee.mentors_prefr: color = 'lightgreen'
-        elif  mentee.name in mentor.mentees_prefr: color = 'darkgreen'
+        elif debug and mentor.name in mentee.mentors_prefr: color = 'lightgreen'
+        elif debug and mentee.name in mentor.mentees_prefr: color = 'darkgreen'
         else: color = 'k'
 
         ## add this color to the list
@@ -348,7 +349,7 @@ def draw_network(
                     this_pod,
                     all_dict,
                     ax=ax,
-                    edge_color=get_edge_colors(llist),
+                    edge_color=get_edge_colors(llist,debug=show_remaining_spots),
                     style=style,
                     width=2,
                     edgelist=llist)
@@ -406,7 +407,11 @@ def add_legend_to_ax(ax,debug=True,between=False):
             role,
             c=color_map[role],
             line_kwargs={'marker':'.','markersize':25},
-            lw=0) 
+            lw=0,
+            labelspacing=1.2,
+            frameon=False,
+            loc='center' if not between else 'upper left'
+            ) 
 
     if not between:
         add_to_legend(
@@ -414,19 +419,25 @@ def add_legend_to_ax(ax,debug=True,between=False):
             'appears elsewhere',
             c='k',
             line_kwargs={'marker':'*','markersize':15},
-            lw=0)
-
-    for label,edge_color in zip(
-        ['both prefer','mentee prefers','mentor prefers'],
-        ['gold','lightgreen','darkgreen']):
-        add_to_legend(
-            ax,
-            label,
-            c=edge_color,
+            lw=0,
             labelspacing=1.2,
             frameon=False,
-            labelcolor=debug*['red','blue','mediumorchid']+['k']*8,
-            loc='center' if not between else 'upper left')
+            loc='center' if not between else 'upper left'
+            )
+
+    if debug:
+        for label,edge_color in zip(
+            ['both prefer','mentee prefers','mentor prefers'],
+            ['gold','lightgreen','darkgreen']):
+            add_to_legend(
+                ax,
+                label,
+                c=edge_color,
+                labelcolor=debug*['red','blue','mediumorchid']+['k']*8,
+                labelspacing=1.2,
+                frameon=False,
+                loc='center' if not between else 'upper left'
+                )
 
 def add_to_legend(
     ax,
