@@ -518,12 +518,9 @@ def add_to_legend(
 
 def list_matches(this_network,show_remaining_spots=False,**kwargs):
     
-    pods,pos_dicts,missing_edgess,anti_nodess = get_positions(this_network)
     edgelist = []
-    for pod in pods:
-        edges = list(pod.edges())
-        for edge in edges:
-            edgelist.append('mentor '+str(edge[0])+' is matched to mentee '+str(edge[1]))
+    for edge in this_network.edges:
+        edgelist.append('mentor '+str(edge[0])+' is matched to mentee '+str(edge[1]))
     
     ## note: a good alternative is using nx.generate_edgelist(this_network, data=False)
     
