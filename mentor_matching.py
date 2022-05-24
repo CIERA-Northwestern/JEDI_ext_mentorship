@@ -387,6 +387,7 @@ def reduce_full_tables(names_df, mentees_df,mentors_df):
 
     # clean up the accents
     names_df['Name'] = names_df['Name'].str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8').replace(' ','')
+    names_df.sort_values(['Name','Role'],inplace=True,ignore_index=True)
 
     people = {}
     name_ranks = {}
@@ -592,7 +593,9 @@ def find_mentor(network,mentee:Person,mentors,loud):
         prosp_mentor = random.choice(mentors_prefer_mentee)
     elif len(mentors_acceptable) == 0:
         if len(mentors_alternative):
-            prosp_mentor = random.choice(mentors_alternative)
+            random.shuffle(mentors_alternative) ## shuffle occurs inplace 
+            sorted_alt_mentors = sorted(mentors_alternative,key=attrgetter("rank"))
+            prosp_mentor = sorted_alt_mentors[0]
             if loud: print ('Mentee ', mentee, ' cannot be matched to a mentor of desired role, but will get another suggestion:', prosp_mentor)
         else:
             if loud: print ('Mentee ', mentee, ' cannot be matched to a mentor any more that satisfies all mentee+mentors requirements!')
