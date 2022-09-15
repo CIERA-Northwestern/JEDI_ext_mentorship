@@ -356,9 +356,12 @@ class Person(object):
         
         check_needed_role = (
             # number in specific role is less than needed in that role
+            self.has_n_role_mentors[int(mentor.rank)] < self.n_role_mentors[int(mentor.rank)])
+        if self.role == mentor.role:
+            check_needed_role = (
             self.has_n_role_mentors[int(mentor.rank)] < self.n_role_mentors[int(mentor.rank)]
-            # mentor "outranks" the mentee (for peer mentoring, primarily)
-            and self.rank < mentor.rank)
+            # mentor "outranks" the mentee by more than 1 year (for peer mentoring)
+            and mentor.years - self.years > 1)
 
         return check_needed_role
 
@@ -370,14 +373,8 @@ class Person(object):
         #now checking that there is not relation yet, assuming other is always the mentor)
         check_relation = (other not in self.mentor_matches and self not in other.mentee_matches)
         if loud and not check_relation: print('check that this exact relation does not exist yet', check_relation, '\n mentee name', self.name, '\n mentor\'s matches:', other.mentee_matches,'\n mentor name', other.name, '\n mentee\'s matches:', self.mentor_matches)
-        
-        ## check roles should be redundant with the check_mentor_available and check_mentee_needed checks above!
-        # now checking that mentee wants a mentor from that role, and the mentor wants a mentee from that role
-        #check_roles = (self.n_role_mentors[other.rank] > 0 and other.n_role_mentees[self.rank] > 0)
-        #if loud and not check_roles: print('check that both want mentee/mentors from the right roles', check_roles, '\n mentor preference:', other.n_role_mentees[self.rank], '\n mentee preference', self.n_role_mentors[other.rank])
 
-
-        return (check_avoid and check_relation) # and check_roles)
+        return (check_avoid and check_relation)
                 
     
 ## let's read in the data to some intelligible format and get rid of all those nans
@@ -572,6 +569,7 @@ def find_mentor(network,mentee:Person,mentors,loud):
         ## and check that the mentor still has available spots for a mentee in this role
         if (mentee.check_compatability(mentor, loud=loud) and mentor.check_mentor_available(mentee)):
             ## check that this mentee still needs a mentor of that role
+            ## (included a larger than 2 year difference for peer mentors)
             if  (mentee.check_mentor_needed(mentor)):
                 mentors_acceptable.append(mentor)
                 ## check for preferred mentors by this mentee
@@ -580,9 +578,8 @@ def find_mentor(network,mentee:Person,mentors,loud):
                 ## check for mentors that prefer this mentee
                 if mentee.name in mentor.mentees_prefr:
                     mentors_prefer_mentee.append(mentor)
-            ## provide alternative option?? I'll put it here to see if this works. Then we can include this in the survey (i.e. Q: "if the number of mentors from the roles you specified are not all available, would you be open to alternative mentor suggesitons (which you can then accept or decline)?"
-            ## For now only provide alternatives for mentees as mentors can provide all the flexibility they have in the form.
-            ## check that the mentor is more senior than the mentee (didn't do peer because that is complicated)
+            ## provide alternative option:
+            ## includes any available mentor than is compatible and more senior (also peers >= 1 yr apart)
             elif (mentor.rank > mentee.rank):
                 mentors_alternative.append(mentor)
     if len(mentors_preferred):

@@ -77,7 +77,24 @@ def run_frac_mentees_less_than_requested(people,network):
                 num+=1
     ## return the fraction
     return num/denom
-
+    
+def run_frac_peers_less_than_2yrapart(people,network):
+    """ Count the fraction of peer mentoring pairs that are less
+        than 2 years apart. This should be as small as possible """
+    num = 0
+    denom = 0
+    for person in people.values():
+        ## if this person requested any mentors at all
+        if (person.n_mentors_total):
+            ## does this mentee have any per mentors
+            for mentor in person.mentor_matches:
+                if (person.role == mentor.role):
+                    denom += 1
+                    ## is any of the peer mentors less than 2 years senior
+                    if (mentor.years - person.years < 2):
+                        num+=1
+    ## return the fraction
+    return num/denom
 
 
 def run_frac_mentors_assigned_mentees(people,network):
