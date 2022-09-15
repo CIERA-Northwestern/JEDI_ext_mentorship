@@ -91,7 +91,7 @@ def run_frac_peers_less_than_2yrapart(people,network):
                 if (person.role == mentor.role):
                     denom += 1
                     ## is any of the peer mentors less than 2 years senior
-                    if (mentor.years - person.years < 2):
+                    if ((mentor.years - person.years) < 2):
                         num+=1
     ## return the fraction
     return num/denom
