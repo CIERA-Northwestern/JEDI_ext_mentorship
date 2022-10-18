@@ -16,14 +16,18 @@ roles = ['Faculty','Postdoc','Graduate Student','Undergraduate Student']
 
 ## define some "constant" dictionaries that help us reformat the data
 role_transformer = {
+    'Undergraduate':'Undergraduate Student',
     'Undergraduate student':'Undergraduate Student',
     'Undergraduate Student':'Undergraduate Student',
     'Undergraduate students':'Undergraduate Student',
     'Graduate student':'Graduate Student',
     'Graduate Student':'Graduate Student',
     'Graduate students':'Graduate Student',
+    'Graduate Students':'Graduate Student',
     'Postdoc':'Postdoc',
+    'Postdocs':'Postdoc',
     'Faculty':'Faculty',
+    'Staff':'Staff',
     'Number of mentees':'Number of mentees'
 }
 
@@ -32,7 +36,8 @@ role_ranks = {
     'Undergraduate Student':0,
     'Graduate Student':1,
     'Postdoc':2,
-    'Faculty':3}
+    'Faculty':3,
+    'Staff':None}
 
 ## define columns where we expect answers to start/end for mentees/mentors
 mentee_answers_start = {
@@ -71,11 +76,11 @@ class Person(object):
         if not only_role: return f"{self.role}: {self.name}"
         else: return f"{self.role[0]}"#+"$_{"+f"({self.has_n_mentees},{self.has_n_mentors}"+")}$"
     
-    def __init__(self,name, role,email=None, raise_error=False):
-        self.initials = ''.join([part[0] for part in name.split(' ')])
+    def __init__(self,name, role,email=None, raise_error=True):
+        self.initials = ''.join([part[0] for part in name.split(' ') if part != ''])
         self.name = name.replace(' ','')
         self.fullName = name
-        self.role = role
+        self.role = role_transformer[role]
         self.email = email
         self.raise_error = raise_error
         self.rank = role_ranks[self.role]
@@ -399,7 +404,7 @@ def reduce_full_tables(names_df, mentees_df,mentors_df):
             name_ranks[name] = rank
 
         except:
-            pass
+            raise
 
     
     ## let's loop through the mentees and read their preferences
