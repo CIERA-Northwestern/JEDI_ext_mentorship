@@ -86,7 +86,7 @@ def run_frac_peers_less_than_2yrapart(people,network):
     for person in people.values():
         ## if this person requested any mentors at all
         if (person.n_mentors_total):
-            ## does this mentee have any per mentors
+            ## does this mentee have any peer mentors?
             for mentor in person.mentor_matches:
                 if (person.role == mentor.role):
                     denom += 1
@@ -94,7 +94,8 @@ def run_frac_peers_less_than_2yrapart(people,network):
                     if ((mentor.years - person.years) < 2):
                         num+=1
     ## return the fraction
-    return num/denom
+    if denom > 0: return num/denom
+    else: return 0
 
 
 def run_frac_mentors_assigned_mentees(people,network):
@@ -211,6 +212,7 @@ metrics = [
     run_mean_clique_size,
     run_n_cliques_gt2,
     run_frac_mentees_alternatives,
+    run_frac_peers_less_than_2yrapart,
     run_network_modularity]
 
 #### functions that call the above:
