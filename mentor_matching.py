@@ -16,6 +16,7 @@ roles = ['Faculty','Postdoc','Graduate Student','Undergraduate Student']
 
 ## define some "constant" dictionaries that help us reformat the data
 role_transformer = {
+    'Undergraduate student / Post-Bac':'Undergraduate Student',
     'Undergraduate':'Undergraduate Student',
     'Undergraduate student':'Undergraduate Student',
     'Undergraduate Student':'Undergraduate Student',
