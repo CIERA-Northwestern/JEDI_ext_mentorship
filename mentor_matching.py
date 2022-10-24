@@ -399,10 +399,9 @@ def reduce_full_tables(names_df, mentees_df,mentors_df):
         ## only inlcude members with ranks that match the roles list above
         name = row['Name'].replace(' ','')
         try:
-            rank = roles[::-1].index('Faculty')
             ## initialize the person instances
             people[name] = Person(row['Name'], row['Role'], row['Email'])
-            name_ranks[name] = rank
+            name_ranks[name] = people[name].rank
 
         except:
             raise
