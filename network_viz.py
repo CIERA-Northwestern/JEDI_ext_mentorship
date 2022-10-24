@@ -10,14 +10,15 @@ hexcols = ['#332288', '#88CCEE', '#44AA99', '#117733', '#999933', '#DDCC77',
            '#CC6677', '#882255', '#AA4499', '#661100', '#6699CC', '#AA4466',
            '#4477AA']
 
-colors = [12, 3, 5, 6]
+colors = [12, 3, 5, 6,1]
 colors = [hexcols[color] for color in colors]
 
 color_map = {
     'Undergraduate Student':colors[0],
     'Graduate Student':colors[1],
     'Postdoc':colors[2],
-    'Faculty':colors[3] }
+    'Faculty':colors[3],
+    'Staff':colors[4]}
 
 def iterate_random(
     graph,
