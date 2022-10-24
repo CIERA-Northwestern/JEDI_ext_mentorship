@@ -55,7 +55,7 @@ mentee_answers_end = {
     'Faculty':-2} ## last two questions are prefer and avoid for everyone
 
 mentor_answers_start = {
-    'Undergraduate Student':0,
+    'Undergraduate Student':1,
     'Graduate Student':2,
     'Postdoc':5,
     'Faculty':9    
@@ -148,7 +148,7 @@ class Person(object):
         if prefrs != 'nan': self.mentors_prefr = prefrs.replace(' ','').split(';')
         if avoids != 'nan': self.mentors_avoid = avoids.replace(' ','').split(';')
 
-        for question,answer in zip(questions,answers[:-2]):
+        for question,answer in zip(questions,answers[:]):
             mentor_role = question.split('[')[1].split(']')[0]
             mentor_role = mentor_role.split(' mentor')[0].split(' peer')[0]
             mentor_role = role_transformer[mentor_role]
@@ -186,7 +186,7 @@ class Person(object):
         ##  for 'Number of mentees' mentor_role
         replace_n_mentees_max = False
 
-        for question,answer in zip(questions,answers[:-2]):
+        for question,answer in zip(questions,answers[:]):
             mentor_role = question.split('[')[1].split(']')[0]
 
             if answer == '5+': answer = GLOBAL_max_mentees
@@ -322,11 +322,14 @@ class Person(object):
             ##  role's section of the results spreadsheet
             if answers_start < (role_answers_start): 
                 raise ValueError(
-                    f"Something went wrong, answers start at {answers_start}" +
+                    f"Something went wrong, {self}'s answers start at {answers_start}" +
                     f" when they should start at {role_answers_start} for {self.role}")
             elif answers_start > (role_answers_start):
                 ## let's fill in 0 (since the questions that were skipped
                 ##  are for how many mentees you'd want) <--- not sure this is true anymore
+                raise ValueError(
+                    f"Something went wrong, {self}'s answers start at {answers_start}" +
+                    f" when they should start at {role_answers_start} for {self.role}")
                 answers[role_answers_start:answers_start] = '0'
         return (
             questions[role_answers_start:role_answers_end],
