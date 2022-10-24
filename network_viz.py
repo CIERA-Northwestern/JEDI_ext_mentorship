@@ -269,8 +269,6 @@ def get_positions(
 
 def draw_network(
     this_network,
-    simple_pos = False,
-    add_missing_edges = True,
     pods=None,
     pos_dicts=None,
     missing_edgess=None,
