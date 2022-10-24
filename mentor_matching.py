@@ -38,34 +38,34 @@ role_ranks = {
     'Graduate Student':1,
     'Postdoc':2,
     'Faculty':3,
-    'Staff':None}
+    'Staff':-1}
 
 ## define columns where we expect answers to start/end for mentees/mentors
 mentee_answers_start = {
     'Undergraduate Student':1,
-    'Graduate Student':7,
-    'Postdoc':12,
-    'Faculty':16    
+    'Graduate Student':5,
+    'Postdoc':8,
+    'Faculty':10
 }
 
 mentee_answers_end = {
     'Undergraduate Student':mentee_answers_start['Graduate Student'],
     'Graduate Student':mentee_answers_start['Postdoc'],
     'Postdoc':mentee_answers_start['Faculty'],
-    'Faculty':100} ## dummy index >> length of answers for slicing
+    'Faculty':-2} ## last two questions are prefer and avoid for everyone
 
 mentor_answers_start = {
-    'Undergraduate Student':1,
-    'Graduate Student':4,
-    'Postdoc':9,
-    'Faculty':15    
+    'Undergraduate Student':0,
+    'Graduate Student':2,
+    'Postdoc':5,
+    'Faculty':9    
 }
 
 mentor_answers_end = {
     'Undergraduate Student':mentor_answers_start['Graduate Student'],
     'Graduate Student':mentor_answers_start['Postdoc'],
     'Postdoc':mentor_answers_start['Faculty'],
-    'Faculty':100} ## dummy index >> length of answers for slicing
+    'Faculty':-2} ## last two questions are prefer and avoid for everyone
 
 
 ## workhorse class for accessing preference data
@@ -132,14 +132,18 @@ class Person(object):
         if reported_role is not None: raise NotImplementedError
         
         ## let's get the answers (and the associated questions) from this row
-        questions,answers = self.get_own_answers(row,mentee_answers_start,mentee_answers_end)
+        (questions,
+        answers,
+        prefr_avoid_questions,
+        prefr_avoid_answers) = self.get_own_answers(
+                row,
+                mentee_answers_start,
+                mentee_answers_end)
         
-        ## unpack the preferences
-        prefr_avoid_answers = answers[-2:]
         
-        ## handle inconsistent ordering, just in case.
-        if 'NOT' in questions[-2:][0]: avoids,prefrs = answers[-2:]
-        else: prefrs,avoids = answers[-2:]
+        ## handle inconsistent ordering by looking for NOT (== avoid), just in case.
+        if 'NOT' in prefr_avoid_questions[0]: avoids,prefrs = prefr_avoid_answers
+        else: prefrs,avoids = prefr_avoid_answers
         
         if prefrs != 'nan': self.mentors_prefr = prefrs.replace(' ','').split(';')
         if avoids != 'nan': self.mentors_avoid = avoids.replace(' ','').split(';')
@@ -161,14 +165,17 @@ class Person(object):
             self.role = reported_role
         
         ## let's get the answers (and the associated questions) from this row
-        questions,answers = self.get_own_answers(row,mentor_answers_start,mentor_answers_end)
-        
-        ## unpack the preferences
-        prefr_avoid_answers = answers[-2:]
-        
-        ## handle inconsistent ordering, just in case.
-        if 'NOT' in questions[-2:][0]: avoids,prefrs = answers[-2:]
-        else: prefrs,avoids = answers[-2:]
+        (questions,
+        answers,
+        prefr_avoid_questions,
+        prefr_avoid_answers) = self.get_own_answers(
+                row,
+                mentor_answers_start,
+                mentor_answers_end)
+
+        ## handle inconsistent ordering by looking for NOT (== avoid), just in case.
+        if 'NOT' in prefr_avoid_questions[0]: avoids,prefrs = prefr_avoid_answers
+        else: prefrs,avoids = prefr_avoid_answers
         
         if prefrs != 'nan': self.mentees_prefr = prefrs.replace(' ','').split(';')
         if avoids != 'nan': self.mentees_avoid = avoids.replace(' ','').split(';')
@@ -210,7 +217,7 @@ class Person(object):
             else: return reported_role
         return None
 
-    def validate_prefr_avoid(self,name_ranks,raise_error=True):
+    def validate_prefr_avoid(self,name_ranks):
         
 
         for prefix in ['mentee','mentor']:
@@ -253,11 +260,13 @@ class Person(object):
                     elif ( suffix != 'avoid' and 
                         prefix == 'mentee' and 
                         name_ranks[name] > role_ranks[self.role]): 
-                        if self.raise_error: raise NameError(
-                            "{name} is of rank {rank:d}".format(
-                                name=name,
-                                rank=name_ranks[name]) +
-                            f"which is an invalid preference for {self} {prefix}")
+                        if self.raise_error:
+                            print(name,name_ranks[name])
+                            raise NameError(
+                                "{name} is of rank {rank:d}".format(
+                                    name=name,
+                                    rank=name_ranks[name]) +
+                                f" which is an invalid {prefix} preference for {self}")
                             
                         ## remove this invalid preference from their list
                         llist.pop(i-popped)
@@ -281,8 +290,19 @@ class Person(object):
         role_answers_end_dict):
         
         ## find where in the row this person's answers start
-        answers = np.array(row.values[4:],dtype=str)
-        questions = np.array(row.keys()[4:],dtype=str)
+        answers = np.array(row.values[3:],dtype=str)
+        questions = np.array(row.keys()[3:],dtype=str)
+
+        ## the last two questions are always the preferences/avoids
+        prefr_avoid_answers = np.array(row.values[-2:].tolist(),dtype=str)
+        prefr_avoid_questions = np.array(row.keys()[-2:],dtype=str)
+
+        ## handle people specifying multiple preferences
+        for i,value in enumerate(prefr_avoid_answers):
+            try: prefr_avoid_answers[i] = value.replace(',',';')
+            except: 
+                if not np.isnan(value): raise ValueError(
+                    f"Invalid preference/avoid entry:{value} for {self}.")
 
         if '[Years]' not in questions[0]: 
             raise IOError(
@@ -303,15 +323,16 @@ class Person(object):
             if answers_start < (role_answers_start): 
                 raise ValueError(
                     f"Something went wrong, answers start at {answers_start}" +
-                    f"when they should start at {role_answers_start}")
+                    f" when they should start at {role_answers_start} for {self.role}")
             elif answers_start > (role_answers_start):
-                raise IOError(
-                    "Data is not in correct format. "+
-                    "Answers start at a later column than expected.")
                 ## let's fill in 0 (since the questions that were skipped
                 ##  are for how many mentees you'd want) <--- not sure this is true anymore
                 answers[role_answers_start:answers_start] = '0'
-        return questions[role_answers_start:role_answers_end],answers[role_answers_start:role_answers_end]
+        return (
+            questions[role_answers_start:role_answers_end],
+            answers[role_answers_start:role_answers_end],
+            prefr_avoid_questions,
+            prefr_avoid_answers)
     
     def print_preferences(self,show_appearances=False):
         print(self)
@@ -564,6 +585,7 @@ def matching_round(people,network,round_index=0,loud=True):
     return mentors,mentees
 
 def find_mentor(network,mentee:Person,mentors,loud):
+    if loud: print(f'Matching for {mentee}...')
     mentors_acceptable = ([])
     mentors_alternative = ([])
     mentors_preferred = ([])
