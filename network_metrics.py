@@ -156,7 +156,6 @@ def run_frac_preferences(people,network):
             (mentee.name in mentor.mentees_prefr)): 
             num+=1.
     ## return the fraction
-    print(f"fraction of preferences satisfied: {num/denom:0.2f}")
     return num/denom
     
 def run_frac_mentees_alternatives(people,network):
