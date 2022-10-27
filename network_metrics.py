@@ -144,6 +144,20 @@ def run_frac_mentees_atleast_one_preference(people,network):
                     break
     ## return the fraction
     return num/denom
+
+def run_frac_preferences(people,network):
+    """ Count the fraction of edges that have at least
+        one preference in them"""
+    num = 0
+    denom = 0
+    for (mentor,mentee,_) in network.edges.keys():
+        denom+=1.
+        if ((mentor.name in mentee.mentors_prefr) or
+            (mentee.name in mentor.mentees_prefr)): 
+            num+=1.
+    ## return the fraction
+    print(f"fraction of preferences satisfied: {num/denom:0.2f}")
+    return num/denom
     
 def run_frac_mentees_alternatives(people,network):
     """ Count the fraction of mentees who
