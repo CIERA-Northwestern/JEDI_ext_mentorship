@@ -508,7 +508,7 @@ def reduce_full_tables(names_df, mentees_df,mentors_df):
         
     return people
 
-def generate_network(names_df,mentees_df,mentors_df,loud=True):
+def generate_network(names_df,mentees_df,mentors_df,loud=True,allow_alternatives=True):
     people = reduce_full_tables(names_df,mentees_df,mentors_df)
     network = nx.MultiDiGraph()
     max_rounds = np.max([value.n_mentors_total for value in people.values()])
@@ -517,7 +517,7 @@ def generate_network(names_df,mentees_df,mentors_df,loud=True):
     max_rounds += 5
     ## do all direct matching first before going into the rounds
     direct_matching(people,network,loud)
-    mentors,mentees = matching_round(people,network,0,loud)
+    mentors,mentees = matching_round(people,network,0,loud,allow_alternatives)
     ## index each of the matching rounds. 
     ##  Only those mentees with Nmentor <= round_index
     ##  are considered eligible for matching. 
@@ -527,7 +527,7 @@ def generate_network(names_df,mentees_df,mentors_df,loud=True):
     ##  NOTE: ^ to be clear, this is not implemented, just an idea
     for round_index in range(1,int(max_rounds)):
         ## do a matching round
-        mentors,mentees = matching_round(people,network,round_index,loud)
+        mentors,mentees = matching_round(people,network,round_index,loud,allow_alternatives)
         ## count the remaining mentors and mentees
         ##  if we ran out of one or the other then let's give up
         if len(mentors) == 0 or len(mentees) == 0: break
@@ -559,7 +559,7 @@ def direct_matching(people,network,loud=True):
                         add_relationship(network,other,person,loud=loud)
                 
                 
-def matching_round(people,network,round_index=0,loud=True):
+def matching_round(people,network,round_index=0,loud=True,allow_alternatives=True):
     ## make a list of people who want at least 1 additional mentor, 
     ##  sorted s.t. people who want the fewest mentors are first, 
     ##  with ties broken by number of people prefered (so that people
@@ -582,12 +582,12 @@ def matching_round(people,network,round_index=0,loud=True):
     mentors = sorted(mentors,key=attrgetter("rank"),reverse=True)
 
     ## attempt to match each remaining mentee with a mentor
-    for mentee in mentees: find_mentor(network,mentee,mentors,loud)
+    for mentee in mentees: find_mentor(network,mentee,mentors,loud,allow_alternatives)
 
     if loud: print('Mentors remaining:',len(mentors),'Mentees remaining:',len(mentees))
     return mentors,mentees
 
-def find_mentor(network,mentee:Person,mentors,loud):
+def find_mentor(network,mentee:Person,mentors,loud,allow_alternatives):
     if loud: print(f'Matching for {mentee}...')
     mentors_acceptable = ([])
     mentors_alternative = ([])
@@ -619,7 +619,7 @@ def find_mentor(network,mentee:Person,mentors,loud):
         ## there is a mentor that prefers this mentee available
         prosp_mentor = random.choice(mentors_prefer_mentee)
     elif len(mentors_acceptable) == 0:
-        if len(mentors_alternative):
+        if len(mentors_alternative) and allow_alternatives:
             random.shuffle(mentors_alternative) ## shuffle occurs inplace 
             sorted_alt_mentors = sorted(mentors_alternative,key=attrgetter("rank"))
             prosp_mentor = sorted_alt_mentors[0]
