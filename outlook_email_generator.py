@@ -1,3 +1,4 @@
+import numpy as np
 import win32com.client as win32
 
 def generate_automatic_outlook_emails(emails, N=np.inf):
