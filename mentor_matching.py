@@ -11,7 +11,7 @@ def set_seed(seed=None):
     random.seed(a=seed)
 
 ## these are the roles that we will consider for the network
-roles = ['Faculty','Postdoc','Graduate Student','Undergraduate Student']
+roles = ['Faculty','Postdoc','Graduate Student','Undergraduate Student','Staff']
 
 
 ## define some "constant" dictionaries that help us reformat the data
@@ -37,34 +37,41 @@ role_ranks = {
     'Undergraduate Student':0,
     'Graduate Student':1,
     'Postdoc':2,
-    'Faculty':3,
-    'Staff':-1}
+    'Faculty':4,
+    'Staff':3}
 
 ## define columns where we expect answers to start/end for mentees/mentors
+## based on which section you are redirected to when you enter your role
+## and on how many roles are more senior or peer to you (mentees) or more
+## junior or peer to you (mentors)
 mentee_answers_start = {
     'Undergraduate Student':1,
-    'Graduate Student':5,
-    'Postdoc':8,
-    'Faculty':10
+    'Graduate Student':6,
+    'Postdoc':10,
+    'Staff':13,
+    'Faculty':15
 }
 
 mentee_answers_end = {
     'Undergraduate Student':mentee_answers_start['Graduate Student'],
     'Graduate Student':mentee_answers_start['Postdoc'],
-    'Postdoc':mentee_answers_start['Faculty'],
+    'Postdoc':mentee_answers_start['Staff'],
+    'Staff':mentee_answers_start['Faculty'],
     'Faculty':-2} ## last two questions are prefer and avoid for everyone
 
 mentor_answers_start = {
     'Undergraduate Student':1,
     'Graduate Student':2,
     'Postdoc':5,
-    'Faculty':9    
+    'Staff':9,
+    'Faculty':14
 }
 
 mentor_answers_end = {
     'Undergraduate Student':mentor_answers_start['Graduate Student'],
     'Graduate Student':mentor_answers_start['Postdoc'],
-    'Postdoc':mentor_answers_start['Faculty'],
+    'Postdoc':mentor_answers_start['Staff'],
+    'Staff':mentor_answers_start['Faculty'],
     'Faculty':-2} ## last two questions are prefer and avoid for everyone
 
 
@@ -152,7 +159,7 @@ class Person(object):
             mentor_role = question.split('[')[1].split(']')[0]
             mentor_role = mentor_role.split(' mentor')[0].split(' peer')[0]
             mentor_role = role_transformer[mentor_role]
-            role_index = ['Undergraduate Student','Graduate Student','Postdoc','Faculty'].index(role_transformer[mentor_role])
+            role_index = ['Undergraduate Student','Graduate Student','Postdoc','Faculty','Staff'].index(role_transformer[mentor_role])
         
             self.n_role_mentors[role_index]+= int(eval(answer)) if answer != 'nan' else 0
         
@@ -201,7 +208,7 @@ class Person(object):
             if mentor_role == 'Number of mentees': 
                 self.n_mentees_max += min(GLOBAL_max_mentees,answer)
                 continue
-            role_index = ['Undergraduate Student','Graduate Student','Postdoc','Faculty'].index(role_transformer[mentor_role])
+            role_index = ['Undergraduate Student','Graduate Student','Postdoc','Faculty','Staff'].index(role_transformer[mentor_role])
         
             self.n_role_mentees[role_index]+= answer
         
@@ -419,8 +426,8 @@ def reduce_full_tables(names_df, mentees_df,mentors_df):
     people = {}
     name_ranks = {}
     for index,row in names_df.iterrows():
-        ## save a numerical "rank" based on the rolw for later
-        ## only inlcude members with ranks that match the roles list above
+        ## save a numerical "rank" based on the role for later
+        ## only include members with ranks that match the roles list above
         name = row['Name'].replace(' ','')
         try:
             ## initialize the person instances
