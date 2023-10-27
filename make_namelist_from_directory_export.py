@@ -55,6 +55,7 @@ final.loc[final.Role.str.contains('Faculty'),'Role'] = 'Faculty'
 final.loc[final.Role.str.contains('Grad'),'Role'] = 'Graduate Student'
 final.loc[final.Role.str.contains('Undergraduate'),'Role'] = 'Undergraduate Student'
 final.loc[final.Role.str.contains('Postdoc'),'Role'] = 'Postdoc'
+final.loc[final.Role.str.contains('Staff'),'Role'] = 'Staff'
 
 print(final.Role.unique())
 
