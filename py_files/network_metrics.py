@@ -1,8 +1,8 @@
 import networkx as nx
 import numpy as np
 
-import mentor_matching
-from network_analysis import get_pods
+import py_files.mentor_matching as mentor_matching
+from py_files.network_analysis import get_pods
 
 ### constraints that must be satisfied otherwise a network is discarded
 def check_any_mentee_has_no_mentor(people,network):
@@ -377,6 +377,7 @@ def create_best_network(
 
     bestlist = ([])
     sorted = output['combined_metric'].argsort()
+    nbest = min(nbest, nruns)
     best_index = sorted[::-1][:nbest]
     for ibest in range(nbest):
         if ibest == 0:

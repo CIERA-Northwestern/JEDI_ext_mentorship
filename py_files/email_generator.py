@@ -1,7 +1,5 @@
 import numpy as np
 
-from network_viz import get_positions
-
 def generate_email_list(this_network, emailSubject = None, emailText = None):
 
     subject = emailSubject

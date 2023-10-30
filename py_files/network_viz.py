@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import networkx as nx
 
-from mentor_matching import Person,GLOBAL_max_mentees,role_ranks
-from network_analysis import detangle_edges, get_pods,find_planar_crossing_edges,find_overlapping_nodes
+from py_files.mentor_matching import Person,GLOBAL_max_mentees,role_ranks
+from py_files.network_analysis import detangle_edges, get_pods,find_planar_crossing_edges,find_overlapping_nodes
 
 hexcols = ['#332288', '#88CCEE', '#44AA99', '#117733', '#999933', '#DDCC77', 
            '#CC6677', '#882255', '#AA4499', '#661100', '#6699CC', '#AA4466',

@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from operator import attrgetter
 import random
 import networkx as nx
@@ -13,6 +14,8 @@ def set_seed(seed=None):
 ## these are the roles that we will consider for the network
 roles = ['Faculty','Postdoc','Graduate Student','Undergraduate Student','Staff']
 
+# number of columns before the question asking how many years at the institution
+answers_padding = 3
 
 ## define some "constant" dictionaries that help us reformat the data
 role_transformer = {
@@ -25,10 +28,18 @@ role_transformer = {
     'Graduate Student':'Graduate Student',
     'Graduate students':'Graduate Student',
     'Graduate Students':'Graduate Student',
+    'Physics Grad':'Graduate Student',
+    'Applied Physics Grad':'Graduate Student',
+    'Astro Grad':'Graduate Student',
+    'ESAM Grad':'Graduate Student',
+    'ECE Grad':'Graduate Student',
+    'ME Grad':'Graduate Student',
     'Postdoc':'Postdoc',
     'Postdocs':'Postdoc',
     'Faculty':'Faculty',
+    'Research Faculty':'Faculty',
     'Staff':'Staff',
+    'Visiting Scholar':'Postdoc', # not quite sure what to do here, but currently no visigin scholars are participating
     'Number of mentees':'Number of mentees'
 }
 
@@ -37,8 +48,9 @@ role_ranks = {
     'Undergraduate Student':0,
     'Graduate Student':1,
     'Postdoc':2,
-    'Faculty':4,
-    'Staff':3}
+    'Staff':3,
+    'Faculty':4
+}
 
 ## define columns where we expect answers to start/end for mentees/mentors
 ## based on which section you are redirected to when you enter your role
@@ -57,7 +69,7 @@ mentee_answers_end = {
     'Graduate Student':mentee_answers_start['Postdoc'],
     'Postdoc':mentee_answers_start['Staff'],
     'Staff':mentee_answers_start['Faculty'],
-    'Faculty':-2} ## last two questions are prefer and avoid for everyone
+    'Faculty':-4} ## last 4 questions are prefer and avoid for everyone
 
 mentor_answers_start = {
     'Undergraduate Student':1,
@@ -72,7 +84,7 @@ mentor_answers_end = {
     'Graduate Student':mentor_answers_start['Postdoc'],
     'Postdoc':mentor_answers_start['Staff'],
     'Staff':mentor_answers_start['Faculty'],
-    'Faculty':-2} ## last two questions are prefer and avoid for everyone
+    'Faculty':-4} ## last 4 questions are prefer and avoid for everyone
 
 
 ## workhorse class for accessing preference data
@@ -114,11 +126,11 @@ class Person(object):
         self.n_other_ee_a = 0
         self.n_other_or_a = 0
         
-        self.n_role_mentees = np.zeros(4)
-        self.n_role_mentors = np.zeros(4)
+        self.n_role_mentees = np.zeros(len(roles))
+        self.n_role_mentors = np.zeros(len(roles))
         
-        self.has_n_role_mentees = np.zeros(4)
-        self.has_n_role_mentors = np.zeros(4)
+        self.has_n_role_mentees = np.zeros(len(roles))
+        self.has_n_role_mentors = np.zeros(len(roles))
 
         self.n_mentees_max = 0
         self.n_mentees_total = 0
@@ -148,9 +160,7 @@ class Person(object):
                 mentee_answers_end)
         
         
-        ## handle inconsistent ordering by looking for NOT (== avoid), just in case.
-        if 'NOT' in prefr_avoid_questions[0]: avoids,prefrs = prefr_avoid_answers
-        else: prefrs,avoids = prefr_avoid_answers
+        prefrs,avoids = prefr_avoid_answers
         
         if prefrs != 'nan': self.mentors_prefr = prefrs.replace(' ','').split(';')
         if avoids != 'nan': self.mentors_avoid = avoids.replace(' ','').split(';')
@@ -159,8 +169,8 @@ class Person(object):
             mentor_role = question.split('[')[1].split(']')[0]
             mentor_role = mentor_role.split(' mentor')[0].split(' peer')[0]
             mentor_role = role_transformer[mentor_role]
-            role_index = ['Undergraduate Student','Graduate Student','Postdoc','Faculty','Staff'].index(role_transformer[mentor_role])
-        
+            role_index = roles.index(role_transformer[mentor_role])
+            # print(role_index, mentor_role, role_transformer[mentor_role])
             self.n_role_mentors[role_index]+= int(eval(answer)) if answer != 'nan' else 0
         
         
@@ -180,9 +190,7 @@ class Person(object):
                 mentor_answers_start,
                 mentor_answers_end)
 
-        ## handle inconsistent ordering by looking for NOT (== avoid), just in case.
-        if 'NOT' in prefr_avoid_questions[0]: avoids,prefrs = prefr_avoid_answers
-        else: prefrs,avoids = prefr_avoid_answers
+        prefrs,avoids = prefr_avoid_answers
         
         if prefrs != 'nan': self.mentees_prefr = prefrs.replace(' ','').split(';')
         if avoids != 'nan': self.mentees_avoid = avoids.replace(' ','').split(';')
@@ -208,7 +216,7 @@ class Person(object):
             if mentor_role == 'Number of mentees': 
                 self.n_mentees_max += min(GLOBAL_max_mentees,answer)
                 continue
-            role_index = ['Undergraduate Student','Graduate Student','Postdoc','Faculty','Staff'].index(role_transformer[mentor_role])
+            role_index = roles.index(role_transformer[mentor_role])
         
             self.n_role_mentees[role_index]+= answer
         
@@ -297,12 +305,12 @@ class Person(object):
         role_answers_end_dict):
         
         ## find where in the row this person's answers start
-        answers = np.array(row.values[3:],dtype=str)
-        questions = np.array(row.keys()[3:],dtype=str)
-
+        answers = np.array(row.values[answers_padding:],dtype=str)
+        questions = np.array(row.keys()[answers_padding:],dtype=str)
+        
         ## the last two questions are always the preferences/avoids
-        prefr_avoid_answers = np.array(row.values[-2:].tolist(),dtype=str)
-        prefr_avoid_questions = np.array(row.keys()[-2:],dtype=str)
+        prefr_avoid_answers = np.array(np.append(row.values[-3], row.values[-1]).tolist(),dtype=str)
+        prefr_avoid_questions = np.array(np.append(row.keys()[-3], row.keys()[-1]).tolist(),dtype=str)
 
         ## handle people specifying multiple preferences
         for i,value in enumerate(prefr_avoid_answers):
@@ -323,21 +331,26 @@ class Person(object):
         role_answers_start = role_answers_start_dict[self.role]
         role_answers_end = role_answers_end_dict[self.role]
         
-        ## this can happen if they skip the first (few) question(s)
-        if answers_start != role_answers_start:
-            ## they should not be able to answer questions before their
-            ##  role's section of the results spreadsheet
-            if answers_start < (role_answers_start): 
-                raise ValueError(
-                    f"Something went wrong, {self}'s answers start at {answers_start}" +
-                    f" when they should start at {role_answers_start} for {self.role}")
-            elif answers_start > (role_answers_start):
-                ## let's fill in 0 (since the questions that were skipped
-                ##  are for how many mentees you'd want) <--- not sure this is true anymore
-                raise ValueError(
-                    f"Something went wrong, {self}'s answers start at {answers_start}" +
-                    f" when they should start at {role_answers_start} for {self.role}")
-                answers[role_answers_start:answers_start] = '0'
+        ## for people who didn't fill in the survey and were added later don't perform this check
+        ## this could be a place to add a flag for these folks so that are in the lowest priority
+        if (not pd.isna(row['Timestamp'])):
+            ## this can happen if they skip the first (few) question(s)
+            if answers_start != role_answers_start:
+                ## they should not be able to answer questions before their
+                ##  role's section of the results spreadsheet
+                if answers_start < (role_answers_start): 
+                    raise ValueError(
+                        f"Something went wrong, {self}'s answers start at {answers_start}" +
+                        f" when they should start at {role_answers_start} for {self.role}")
+                elif answers_start > (role_answers_start):
+                    ## let's fill in 0 (since the questions that were skipped
+                    ##  are for how many mentees you'd want) <--- not sure this is true anymore
+                    raise ValueError(
+                        f"Something went wrong, {self}'s answers start at {answers_start}" +
+                        f" when they should start at {role_answers_start} for {self.role}")
+                    answers[role_answers_start:answers_start] = '0'
+
+
         return (
             questions[role_answers_start:role_answers_end],
             answers[role_answers_start:role_answers_end],
