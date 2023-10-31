@@ -12,11 +12,13 @@ def check_any_mentee_has_no_mentor(people,network):
     denom = 0
     for person in people.values():
         ## if this person requested any mentors at all
-        if (person.n_mentors_total):
+        if (person.n_mentors_total and person.skipped_survey == 0):
             denom+=1
             ## if they got any mentor at all
             if (len(person.mentor_matches)):
                 num+=1
+
+    # print("check_any_mentee_has_no_mentor", num, denom)
 
     ## return the fraction
     return num == denom
@@ -40,6 +42,8 @@ def check_any_matched_avoid(people,network):
                 num+=1
                 break
 
+    # print("check_any_matched_avoid", num)
+
     return num == 0
 
 def check_any_mentors_overassigned(people,network):
@@ -54,6 +58,9 @@ def check_any_mentors_overassigned(people,network):
             ## if they got assigned more mentees than they offered
             if (len(person.mentee_matches) - person.n_mentees_total > 0): ##boolean of a negative number is True so need to add > 0
                 num+=1
+    
+    # print("check_any_mentors_overassigned", num)
+
     return num == 0
 
 
@@ -361,7 +368,9 @@ def create_best_network(
     while len(network_list) < nruns and i < 2*nruns:
         people, network = mentor_matching.generate_network(names_df,mentees_df,mentors_df,loud,allow_alternatives)
         flag = True
-        for constraint in constraints: flag = flag and constraint(people,network)
+        for constraint in constraints: 
+            cnst = constraint(people,network)
+            flag = flag and cnst
 
         ## network passed muster, add it to the list
         if flag:

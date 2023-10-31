@@ -12,7 +12,9 @@ def set_seed(seed=None):
     random.seed(a=seed)
 
 ## these are the roles that we will consider for the network
-roles = ['Faculty','Postdoc','Graduate Student','Undergraduate Student','Staff']
+## AMG: these are in a difference (nearly reverse) order of everything else, and I think this is introducing bugs...
+# roles = ['Faculty','Postdoc','Graduate Student','Undergraduate Student','Staff']
+roles = ['Undergraduate Student', 'Graduate Student', 'Postdoc', 'Staff', 'Faculty']
 
 # number of columns before the question asking how many years at the institution
 answers_padding = 3
@@ -145,6 +147,8 @@ class Person(object):
         self.mentees_remaining = None
         self.mentors_remaining = None
 
+        self.skipped_survey = 0 # 0 for people who filled in the survey and set to 100 for those who did not fill in the survey, for sorting
+
     def parse_row_role_mentee(self,row):
         #print('mentee - ',self)
         reported_role = self.check_role(row)
@@ -173,7 +177,25 @@ class Person(object):
             # print(role_index, mentor_role, role_transformer[mentor_role])
             self.n_role_mentors[role_index]+= int(eval(answer)) if answer != 'nan' else 0
         
+        ## add default behavior for people who were added later (and didn't fill out the survey)        
+        ## request one mentor more senior than mentee
+        if (pd.isna(row['Timestamp'])):
+            ## set the flag for sorting
+            self.skipped_survey = 100
+
+            ## request one mentor more senior than mentee (with special handling for staff)
+            role_index = -1
+            if (self.role == "Undergraduate Student"): role_index = roles.index("Graduate Student")
+            if (self.role == "Graduate Student"): role_index = roles.index("Postdoc")
+            if (self.role == "Staff"): role_index = roles.index("Staff")
+            if (self.role == "Postdoc"): role_index = roles.index("Faculty")
+            if (self.role == "Faculty"): role_index = roles.index("Faculty")
+            
+            if (role_index == -1):
+                raise ValueError(f"Couldn't find default mentor role for mentee with role {self.role}")
         
+            self.n_role_mentors[role_index] = 1
+
     def parse_row_role_mentor(self,row):
         #print('mentor - ',self)
         reported_role = self.check_role(row)
@@ -563,7 +585,7 @@ def direct_matching(people,network,loud=True):
         value for value in people.values() if (
         value.mentors_remaining > 0 and  ## only match those who need matches
         value.n_mentors_prefr > 0)], ## only keep mentees that actually have prefered mentors
-        key=attrgetter("n_mentors_total","rank","n_mentors_prefr"),
+        key=attrgetter("n_mentors_prefr", "n_mentors_total","rank"),
         reverse=False)
     for person in mentees:
         for other_name in person.mentors_prefr:
@@ -577,11 +599,14 @@ def direct_matching(people,network,loud=True):
                         person.check_mentor_needed(other)):
                       
                         add_relationship(network,other,person,loud=loud)
+                        # print("found preferred match", person, other)
                 
                 
 def matching_round(people,network,round_index=0,loud=True,allow_alternatives=True):
     ## make a list of people who want at least 1 additional mentor, 
-    ##  sorted s.t. people who want the fewest mentors are first, 
+    ##  sorted s.t. 
+    ##  people who filled out the survey go first
+    ##  then people who want the fewest mentors, 
     ##  with ties broken by number of people prefered (so that people
     ##  with preferences have a better chance of getting those filled)
     ##  and then matching people randomly in order of rank
@@ -591,9 +616,9 @@ def matching_round(people,network,round_index=0,loud=True,allow_alternatives=Tru
         value for value in people.values() if 
         value.mentors_remaining > 0 and 
         value.has_n_mentors <= (round_index)],
-        key=attrgetter("n_mentors_total","n_mentors_prefr_for_sorting","rank"),
+        key=attrgetter("skipped_survey", "n_mentors_total", "n_mentors_prefr_for_sorting", "rank"),
         reverse=False)
-
+        
     ## make a list of people who are (still) willing to mentor
     mentors = sorted([
         value for value in people.values() if (value.mentees_remaining)>0],
