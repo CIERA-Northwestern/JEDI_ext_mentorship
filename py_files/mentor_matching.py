@@ -585,7 +585,7 @@ def direct_matching(people,network,loud=True):
         value for value in people.values() if (
         value.mentors_remaining > 0 and  ## only match those who need matches
         value.n_mentors_prefr > 0)], ## only keep mentees that actually have prefered mentors
-        key=attrgetter("n_mentors_prefr", "n_mentors_total","rank"),
+        key=attrgetter("n_mentors_total", "rank", "n_mentors_prefr"),
         reverse=False)
     for person in mentees:
         for other_name in person.mentors_prefr:
