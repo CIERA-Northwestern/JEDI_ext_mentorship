@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 def generate_email_list(this_network, emailSubject = None, emailText = None):
 
@@ -11,17 +12,22 @@ def generate_email_list(this_network, emailSubject = None, emailText = None):
         mentor = edge[0]
         mentee = edge[1]
         email = dict()
-        email["to"] = mentor.email + "; " + mentee.email
-        email["subject"] = subject
-        text = emailText
-        if (emailText is None):
-            name1 = mentor.fullName.split()[0]
-            name2 = mentee.fullName.split()[0]
-            text = f"Dear {name1} and {name2},<br/><br/>You have been matched as a mentor ({name1}) - mentee ({name2}) pair in the CIERA Mentorship Network.  Please use this email as a starting point for your mentoring relationship.<br/><br/>We suggest reaching out and planning a first meeting now. It doesn't have to take place very soon, but it should be scheduled.  For the first meeting we suggest that you try to get to know each other a bit and find out whether there is a preferred focus area for this mentoring relationship.<br/><br/>You can find useful information for both mentors and mentees on mentorship on the <a href='https://sites.northwestern.edu/cieraguide/mentorship/'>CIERA Guide here.</a>  Also, the Mentorship Action Team hosts a mentoring focused lunch on the first Monday of every month at noon in the CIERA cafe, and everyone is encouraged to attend. Our next lunch will be November 7 (the coming Monday).<br/><br/>We are aware that availability and priorities may change.  If for any reason you feel unable to contribute to this mentoring relationship at this time, please reply-all to this email to let us know.<br/><br/>Sincerely,<br/>(A-Z by first name) Aaron Geller, Alex Gurvich, Tjitske Starkenburg<br/>Representing the CIERA Mentorship Action Team"
-        email["text"] = text
+        if (not pd.isna(mentor.email) and not pd.isna(mentee.email)):
+            email["to"] = mentor.email + "; " + mentee.email
+            email["subject"] = subject
+            text = emailText
+            if (emailText is None):
+                name1 = mentor.fullName.split()[0]
+                name2 = mentee.fullName.split()[0]
+                text = f"Dear {name1} and {name2},<br/><br/>You have been matched as a mentor ({name1}) - mentee ({name2}) pair in the CIERA Mentorship Network.  Please use this email as a starting point for your mentoring relationship.<br/><br/>We suggest reaching out and planning a first meeting now. It doesn't have to take place very soon, but it should be scheduled.  For the first meeting we suggest that you try to get to know each other a bit and find out whether there is a preferred focus area for this mentoring relationship.<br/><br/>You can find useful information for both mentors and mentees on mentorship on the <a href='https://sites.northwestern.edu/cieraguide/mentorship/'>CIERA Guide here.</a>  Also, the Mentorship Action Team hosts a mentoring focused lunch on the first Monday of every month at noon in the CIERA cafe, and everyone is encouraged to attend. Our next lunch will be November 7 (the coming Monday).<br/><br/>We are aware that availability and priorities may change.  If for any reason you feel unable to contribute to this mentoring relationship at this time, please reply-all to this email to let us know.<br/><br/>Sincerely,<br/>(A-Z by first name) Aaron Geller, Alex Gurvich, Tjitske Starkenburg<br/>Representing the CIERA Mentorship Action Team"
+            email["text"] = text
 
-        output.append(email)
-
+            output.append(email)
+        else:
+            if (pd.isna(mentor.email)):
+                print(f"WARNING: missing mentor email.  name = {mentor.name}, email = {mentor.email}")
+            if (pd.isna(mentee.email)):
+                print(f"WARNING: missing mentee email.  name = {mentee.name}, email = {mentee.email}")
     return output
 
 
