@@ -677,7 +677,7 @@ def find_mentor(network,mentee:Person,mentors,loud,allow_alternatives):
     else:
         ## pick one from the general list with removed avoid mentors
         prosp_mentor = random.choice(mentors_acceptable)
-    if (pros_mentor is None):
+    if (prosp_mentor is None):
         print(f'WARNING!! Mentee {mentee} cannot be matched to a any mentor that satisfies all mentee+mentors requirements!')
     else:
         add_relationship(network,prosp_mentor,mentee)
