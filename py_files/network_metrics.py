@@ -371,7 +371,7 @@ def create_best_network(
         for constraint in constraints: 
             cnst = constraint(people,network)
             flag = flag and cnst
-
+        print("checking network", i, len(people), flag)
         ## network passed muster, add it to the list
         if flag:
             network_list.append(network)

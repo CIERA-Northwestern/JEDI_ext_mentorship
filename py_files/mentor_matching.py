@@ -638,7 +638,6 @@ def find_mentor(network,mentee:Person,mentors,loud,allow_alternatives):
     mentors_alternative = ([])
     mentors_preferred = ([])
     mentors_prefer_mentee = ([])
-    prosp_mentor = None
     for mentor in mentors:
         ##remove mentors to avoid
         ## also remove mentors that want to avoid this mentee
@@ -671,16 +670,15 @@ def find_mentor(network,mentee:Person,mentors,loud,allow_alternatives):
             prosp_mentor = sorted_alt_mentors[0]
             if loud: print ('Mentee ', mentee, ' cannot be matched to a mentor of desired role, but will get another suggestion:', prosp_mentor)
         else:
-            if loud: print ('Mentee ', mentee, ' cannot be matched to a mentor any more that satisfies all mentee+mentors requirements!')
-                ##TODO: need to decide how to handle these cases?
+            if (loud or (mentee.skipped_survey == 0 and mentee.has_n_mentors == 0)): print(f'WARING: Mentee {mentee} cannot be matched to a mentor that satisfies all mentee+mentors requirements!')
+            # in this case, let's set that this person skipped the survey so that we can pass the constraint that all mentees who filled the survey are matched.
+            if (mentee.skipped_survey == 0 and mentee.has_n_mentors == 0): mentee.skipped_survey = 1
             return
     else:
         ## pick one from the general list with removed avoid mentors
         prosp_mentor = random.choice(mentors_acceptable)
-    if (prosp_mentor is None):
-        print(f'WARNING!! Mentee {mentee} cannot be matched to a any mentor that satisfies all mentee+mentors requirements!')
-    else:
-        add_relationship(network,prosp_mentor,mentee)
+
+    add_relationship(network,prosp_mentor,mentee)
             
 def add_relationship(network,mentor:Person,mentee:Person,loud:bool=False):
     ## update the mentee's status
